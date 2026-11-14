@@ -1,0 +1,6 @@
+Id: FlatcapQA_Seed
+Name: Flatcap QA demo library seed
+Author: Flatcap
+Version: 1.0.0
+Module: seed.psm1
+Type: Script

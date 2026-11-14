@@ -1,0 +1,92 @@
+{
+  "version": "2.0.0",
+  "repo": "https://github.com/cheycron/flatcap-playnite",
+  "author": "Cheycron Blaine",
+  "playnite": {
+    "tested": "10.64",
+    "tested_os": "Windows",
+    "upstream_tag": "10.64",
+    "desktop_theme_api_version": "2.0.0",
+    "desktop_app_theme_api_version": "2.10.0"
+  },
+  "themes": {
+    "slate": {
+      "id": "Flatcap_Slate_Desktop",
+      "name": "Flatcap Slate",
+      "mode": "Desktop"
+    },
+    "daylight": {
+      "id": "Flatcap_Daylight_Desktop",
+      "name": "Flatcap Daylight",
+      "mode": "Desktop"
+    }
+  },
+  "upstream": {
+    "root": "upstream/playnite-10.64/Desktop/Default",
+    "license": "LICENSES/Playnite-MIT.txt",
+    "files": {}
+  },
+  "constants": {
+    "colors": {
+      "TextColor": {"token": "text.primary", "role": "Main text (TextBrush)"},
+      "TextColorDarker": {"token": "text.secondary", "role": "Secondary text (TextBrushDarker)"},
+      "TextColorDark": {"token": "accent.on", "role": "Text on accent fills (TextBrushDark: selected rows, Play button)"},
+      "MainColor": {"token": "border.control", "role": "NormalBrush: scrollbar thumb, group box and combo box borders"},
+      "MainColorDark": {"token": "bg.canvas", "role": "NormalBrushDark: tracks, splitters; check mark background"},
+      "HoverColor": {"token": "bg.hover", "role": "Row hover in data grids"},
+      "GlyphColor": {"token": "accent.fill", "role": "Accent: icons, button text, focus and selection borders, selected-row fill"},
+      "HighlightGlyphColor": {"token": "accent.fill", "role": "Slider fill (HighlightGlyphBrush)"},
+      "PopupBackgroundColor": {"token": "bg.raised", "role": "Popup surface (color key)"},
+      "PopupBorderColor": {"token": "border.subtle", "role": "Popup and window border (PopupBorderBrush)"},
+      "BackgroundToneColor": {"token": "bg.raised", "role": "Tooltip surface"},
+      "GridItemBackgroundColor": {"token": "bg.surface", "role": "Grid view item background"},
+      "PanelSeparatorColor": {"token": "border.subtle", "role": "Panel separators"},
+      "WindowPanelSeparatorColor": {"token": "border.subtle", "role": "Window panel separator (unused by the Default theme files)"},
+      "DataChangeNotifColor": {"token": "warning.fg", "role": "Unsaved-data marker (unused by the Default theme files)"}
+    },
+    "keep_literal": {
+      "BlackColor": "unchanged: pure black, not used by any Default theme style",
+      "WhiteColor": "unchanged: pure white, not used by any Default theme style"
+    },
+    "brushes": {
+      "NormalBorderBrush": {"token": "border.control", "role": "Control borders (buttons, inputs, lists, window border when a dialog is open)"},
+      "ButtonBackgroundBrush": {"token": "bg.raised", "role": "Button fill"},
+      "PopupBackgroundBrush": {"token": "bg.raised", "role": "Menus, combo box lists, notifications"},
+      "PositiveRatingBrush": {"token": "success.fg", "role": "Game score: positive"},
+      "NegativeRatingBrush": {"token": "danger.fg", "role": "Game score: negative"},
+      "MixedRatingBrush": {"token": "warning.fg", "role": "Game score: mixed"},
+      "WarningBrush": {"token": "danger.fg", "role": "Warning text"},
+      "HoverBrush": {"token": "bg.hover", "role": "Hover rectangle of list rows, menu items and sidebar items"}
+    },
+    "gradients_replaced": {
+      "ExpanderBackgroundBrush": "bg.raised fading to transparent (was a blue gradient)",
+      "WindowBackgourndBrush": "solid bg.canvas (was a blue gradient; the key keeps Playnite's spelling)"
+    },
+    "typography": {
+      "FontSizeSmall": "font.size.meta",
+      "FontSize": "font.size.control",
+      "FontSizeLarge": "font.size.body",
+      "FontSizeLarger": "font.size.heading",
+      "FontSizeLargest": "font.size.title",
+      "FontFamily": "font.ui",
+      "MonospaceFontFamily": "font.code"
+    },
+    "metrics": {
+      "ControlCornerRadius": "radius.control",
+      "ControlBorderThickness": "border.width",
+      "PopupBorderThickness": "border.width"
+    },
+    "added": {
+      "FlatcapCanvasBrush": {"token": "bg.canvas", "role": "Deepest surface"},
+      "FlatcapSurfaceBrush": {"token": "bg.surface", "role": "Data grid background"},
+      "FlatcapChipBrush": {"token": "bg.raised", "role": "Top panel buttons (was a 60% dark navy)"},
+      "FlatcapSelectedBrush": {"token": "bg.selected", "role": "Search results: hovered and selected row (was #003f59)"},
+      "FlatcapBadgeBrush": {"token": "danger.fg", "role": "Notification badge and empty-item markers (was OrangeRed)"},
+      "FlatcapBadgeTextBrush": {"token": "accent.on", "role": "Text on the badge"},
+      "FlatcapDangerBrush": {"token": "danger.fg", "role": "Exit and remove icons, validation mark (was OrangeRed or Red)"},
+      "FlatcapWarningBrush": {"token": "warning.fg", "role": "Favorite icon (was Yellow)"},
+      "FlatcapScrimBrush": {"token": "bg.canvas", "alpha": 204, "role": "Overlay on game covers (name, hover, uninstalled); was 60% or 67% black"},
+      "FlatcapScrimTextBrush": {"token": "text.primary", "role": "Text on the cover overlay"}
+    }
+  }
+}
