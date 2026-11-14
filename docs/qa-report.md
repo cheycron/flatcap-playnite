@@ -9,27 +9,27 @@ The check is deterministic and runs offline. In this build:
 <!-- build:static -->
 | Check | Result in this build |
 | :--- | :--- |
-| Upstream files vendored and unchanged | 12 files match `SHA256SUMS` |
-| Patches applied to upstream files | 20 replacements in 10 files, each matched the expected number of times |
-| Shipped files per theme | 13 (Constants.xaml, CustomControls/SidebarItem.xaml, CustomControls/TopPanelItem.xaml, DefaultControls/DataGrid.xaml, DefaultControls/ProgressBar.xaml, DerivedStyles/GridViewItemTemplate.xaml, LICENSE.txt, Media.xaml, Views/DetailsViewGameOverview.xaml, Views/GridViewGameOverview.xaml, Views/SearchView.xaml, Views/TopPanel.xaml, theme.yaml) |
+| Upstream files vendored and unchanged | 15 files match `SHA256SUMS` |
+| Patches applied to upstream files | 25 replacements in 13 files, each matched the expected number of times |
+| Shipped files per theme | 16 (Constants.xaml, CustomControls/SidebarItem.xaml, CustomControls/TopPanelItem.xaml, DefaultControls/DataGrid.xaml, DefaultControls/ListBox.xaml, DefaultControls/ProgressBar.xaml, DerivedStyles/DetailsHyperlink.xaml, DerivedStyles/GridViewItemTemplate.xaml, DerivedStyles/PlayButton.xaml, LICENSE.txt, Media.xaml, Views/DetailsViewGameOverview.xaml, Views/GridViewGameOverview.xaml, Views/SearchView.xaml, Views/TopPanel.xaml, theme.yaml) |
 | Color keys mapped to tokens | 15 colors, 8 brushes, 10 added, 2 gradients replaced |
 | Color literals outside `Constants.xaml` in shipped files | none |
-| Contrast targets | 54 met (4 report-only rows) |
+| Contrast targets | 64 met (4 report-only rows) |
 | Theme ids | unique, not built-in, letters, digits and underscores |
 | `ThemeApiVersion` | 2.0.0 (loadable by Desktop API 2.10.0: same major, not newer) |
 <!-- /build:static -->
 
 `--check` also verifies, for each of the two themes, that the unpacked folder and the `.pthm` match what the build generates, that `theme.yaml` has the fields Playnite needs (a valid id, a loadable `ThemeApiVersion`, a version equal to the core's), that every XAML file is well formed, that no `x:Key` is duplicated, that no shipped file contains a color literal or a named color, that every `Flatcap*` resource a file uses is defined in that theme's `Constants.xaml`, that the README has its required sections, that the screenshots exist and are 1440x900 PNG files without metadata chunks, and that no private path, IP address or host name is committed.
 
-`python3 scripts/mutation_test.py` breaks the repository in a temporary copy, one defect per detector, and requires `--check` to fail with the expected message each time. A detector that never fails is not a detector. Last run: 61 of 61 cases behaved as expected (one unmutated baseline, which must pass, and 60 mutations, which must fail with the expected message). The first run found two real problems, both fixed: an extra file in a theme folder crashed the build with a traceback instead of reporting it, and one case did not mutate anything. The cases cover the checks listed above; they are not a proof that no other defect goes undetected.
+`python3 scripts/mutation_test.py` breaks the repository in a temporary copy, one defect per detector, and requires `--check` to fail with the expected message each time. A detector that never fails is not a detector. Last run: 97 of 97 cases behaved as expected (one unmutated baseline, which must pass, and 96 mutations, which must fail with the expected message). The new cases of this revision cover: the hover and focus text contrast read from the generated XAML, color literals in every form the detector knows (hex of 3 to 8 digits, `sc#`, WPF named colors in attributes and text, `Colors.X`, `SystemColors`) with the single `OpacityMask` exception limited to `Black` and `Transparent`, the privacy patterns (generic ones and the local `.private-patterns` file), the SHA-256 pin of the core including CRLF input, and a package with a duplicated ZIP member. Earlier runs found real problems, all fixed: an extra file in a theme folder crashed the build with a traceback; some mutations of this revision did not mutate anything or expected the wrong message, and were corrected until each one failed for the intended reason. The cases cover the checks listed above; they are not a proof that no other defect goes undetected.
 
 ## 2. Package structure
 
 <!-- build:pthmcheck -->
 | Package | Members (in order) | Uncompressed bytes | Timestamp |
 | :--- | :--- | ---: | :--- |
-| `dist/Flatcap_Slate_Desktop_2_0_0.pthm` | `theme.yaml`, `Constants.xaml`, `CustomControls/SidebarItem.xaml`, `CustomControls/TopPanelItem.xaml`, `DefaultControls/DataGrid.xaml`, `DefaultControls/ProgressBar.xaml`, `DerivedStyles/GridViewItemTemplate.xaml`, `LICENSE.txt`, `Media.xaml`, `Views/DetailsViewGameOverview.xaml`, `Views/GridViewGameOverview.xaml`, `Views/SearchView.xaml`, `Views/TopPanel.xaml` | 113899 | 2026-01-01 (fixed) |
-| `dist/Flatcap_Daylight_Desktop_2_0_0.pthm` | `theme.yaml`, `Constants.xaml`, `CustomControls/SidebarItem.xaml`, `CustomControls/TopPanelItem.xaml`, `DefaultControls/DataGrid.xaml`, `DefaultControls/ProgressBar.xaml`, `DerivedStyles/GridViewItemTemplate.xaml`, `LICENSE.txt`, `Media.xaml`, `Views/DetailsViewGameOverview.xaml`, `Views/GridViewGameOverview.xaml`, `Views/SearchView.xaml`, `Views/TopPanel.xaml` | 113908 | 2026-01-01 (fixed) |
+| `dist/Flatcap_Slate_Desktop_2_0_0.pthm` | `theme.yaml`, `Constants.xaml`, `CustomControls/SidebarItem.xaml`, `CustomControls/TopPanelItem.xaml`, `DefaultControls/DataGrid.xaml`, `DefaultControls/ListBox.xaml`, `DefaultControls/ProgressBar.xaml`, `DerivedStyles/DetailsHyperlink.xaml`, `DerivedStyles/GridViewItemTemplate.xaml`, `DerivedStyles/PlayButton.xaml`, `LICENSE.txt`, `Media.xaml`, `Views/DetailsViewGameOverview.xaml`, `Views/GridViewGameOverview.xaml`, `Views/SearchView.xaml`, `Views/TopPanel.xaml` | 122360 | 2026-01-01 (fixed) |
+| `dist/Flatcap_Daylight_Desktop_2_0_0.pthm` | `theme.yaml`, `Constants.xaml`, `CustomControls/SidebarItem.xaml`, `CustomControls/TopPanelItem.xaml`, `DefaultControls/DataGrid.xaml`, `DefaultControls/ListBox.xaml`, `DefaultControls/ProgressBar.xaml`, `DerivedStyles/DetailsHyperlink.xaml`, `DerivedStyles/GridViewItemTemplate.xaml`, `DerivedStyles/PlayButton.xaml`, `LICENSE.txt`, `Media.xaml`, `Views/DetailsViewGameOverview.xaml`, `Views/GridViewGameOverview.xaml`, `Views/SearchView.xaml`, `Views/TopPanel.xaml` | 122369 | 2026-01-01 (fixed) |
 <!-- /build:pthmcheck -->
 
 The `.pthm` is a ZIP with `theme.yaml` first, written with fixed timestamps (2026-01-01), member order, compression level and attributes so it does not change from run to run. `--check` compares its members, content and ZIP metadata with a local rebuild.
@@ -64,11 +64,22 @@ Observed while reviewing:
 - The Playnite logo (red game controller) is Playnite's, left as is.
 - Playnite's startup message about running with elevated privileges appeared once in the portable copy (that Windows session runs elevated); it was dismissed there and is not part of the screenshots.
 
+### Re-run for the contrast revision (2026-11-14)
+
+The run above was repeated after the hover/focus contrast fix, with a **new** portable Playnite 10.64 (same official archive, SHA-256 verified again) in a new temporary folder, its own named-pipe endpoint and a new demo library of 12 invented games (`qa/seed/`). The theme folders were sent to the Windows machine as a compressed archive whose SHA-256 was verified there, and each package was re-zipped on that machine from those folders (same members and order as `dist/`; the bytes of `dist/*.pthm` themselves were not the ones installed). Both themes loaded, Playnite started with no theme/XAML error in its log, and all 12 games were seeded.
+
+- **Captures.** The four 1440x900 captures taken in this run have the **same SHA-256** as the four images already in `images/`, so they were not replaced. They were not looked at again by eye in this run (the viewer could not open files on the Windows machine); the committed images are the ones reviewed earlier.
+- **Hover on the Play button (observed live, by pixel measurement, not by eye).** With the mouse placed over the button, the 1 px border changed from the control border color to the primary text color (Slate `#8593A5` to `#D5DBE3`; Daylight `#6C7A89` to `#28313B`), and the fill and the label colors did not change: Slate dark `#101820` label on `#9BBFDF`; Daylight light `#FAFBFC` label on `#285D85`. The contrast of those label/fill pairs read from the generated XAML is 9.30:1 (Slate) and 6.77:1 (Daylight).
+- **Keyboard focus without selection on a list item: NOT confirmed live.** In the Grid view, a click on the first cover followed by Ctrl+Right changed only about 120 pixels (a dark, shadow-like area), without the accent highlight, so that run does not show the `ListBoxItem` focus rule being used. The rule is covered only by the static contrast check (`TextBrushDark` on `GlyphBrush`: 9.30:1 and 6.77:1) and by the mutation cases.
+- **Cleanup.** Only processes whose image was inside the temporary folder were stopped; the folder was then deleted. The real Playnite (PID 3088) was running before and after. One force-stop of the portable copy during its first-start wizard left a crash marker in that folder (`safestart.flag`), which produced a safe-mode prompt; it was removed and the run repeated.
+- A request for a full-desktop screenshot closed the remote-control connection twice, so no desktop screenshot was used.
+
 ### What was not tested
 
 - **Installing the `.pthm` through Playnite's own flow.** Passing the file as a command-line argument when starting the portable copy did not install it (no error was logged and the theme did not appear). The package contents were unzipped by hand into `Themes/Desktop/`, which is the layout Playnite's installer creates. The Toolbox pack comparison above supports that the package has the layout Playnite expects, but the install flow itself is **NOT TESTED**.
 - Any Playnite version other than 10.64; Fullscreen mode; the list view, filter panel, menus, dialogs and settings windows; high DPI; keyboard-only use; screen readers; Windows High Contrast.
 - The outbound request Playnite makes for its update check was not blocked in the test.
+- The privacy list kept in `.private-patterns` is local and not versioned, so what it matches is **not** checked by anyone else; the committed patterns are generic (RFC 1918 and CGNAT ranges, `*.ts.net`, Linux home and mount paths, Windows user-profile paths, UNC paths, non-noreply e-mail addresses).
 
 ## 4. Fullscreen
 

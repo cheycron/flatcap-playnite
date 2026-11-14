@@ -14,12 +14,14 @@ import argparse
 import hashlib
 import io
 import json
+import os
 import re
 import shutil
 import struct
 import subprocess
 import sys
 import tempfile
+import warnings
 import zipfile
 import zlib
 from pathlib import Path
@@ -35,6 +37,14 @@ WIN_PATH = "C:" + "\\" + "Users" + "\\" + "someone" + "\\" + "file"
 HOME_PATH = "/ho" + "me/someone/file"
 IP10, IP172, IP192 = "10." + "1.2.3", "172." + "20.4.5", "192." + "168.1.20"
 HOST = "nas" + "." + "lan"
+IPCG = "100." + "100.1.2"
+TSNET = "box." + "tail1234" + "." + "ts" + "." + "net"
+UNC = "\\" + "\\" + "nas" + "\\" + "share"
+MNT_PATH = "/mn" + "t/data/file"
+EMAIL = "some" + "one" + "@" + "example" + "." + "com"
+NOREPLY = "12345+some" + "one" + "@" + "users.noreply.github.com"
+PRIV_WORD = "zzprivate" + "hostzz"
+PRIV_RX = "\\" + "b" + PRIV_WORD + "\\" + "b"  # \bword\b
 
 
 def copy_tree(dst: Path, ref: str | None) -> None:
@@ -91,6 +101,32 @@ def add_file(path: str, data: bytes = b"x"):
     return run
 
 
+def both(*fns):
+    """Several mutations in one case (they are one defect: a private name AND the file that lists it)."""
+    def run(d: Path):
+        env = None
+        for fn in fns:
+            env = fn(d) or env
+        return env
+    return run
+
+
+def private_file(name: str, text: str, env_var: bool = False):
+    def run(d: Path):
+        f = d / name
+        f.parent.mkdir(parents=True, exist_ok=True)
+        f.write_text(text, encoding="utf-8")
+        return {"FLATCAP_PRIVATE_PATTERNS": str(f)} if env_var else None
+    return run
+
+
+def crlf(path: str):
+    def run(d: Path):
+        f = d / path
+        f.write_bytes(f.read_bytes().replace(b"\n", b"\r\n"))
+    return run
+
+
 def json_edit(path: str, fn):
     def run(d: Path):
         f = d / path
@@ -138,6 +174,10 @@ def rezip(path: str, **kw):
                 z.writestr(info, b)
             if kw.get("extra_member"):
                 z.writestr(zipfile.ZipInfo("notes.txt", date_time=(2026, 1, 1, 0, 0, 0)), b"x")
+            if kw.get("dup_member"):
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    z.writestr(zipfile.ZipInfo(members[1][0], date_time=(2026, 1, 1, 0, 0, 0)), members[1][1])
         f.write_bytes(buf.getvalue())
     return run
 
@@ -158,11 +198,19 @@ def tiny_png(path: str):
     return run
 
 
+def repin(d: Path):
+    """Pin the (mutated) core copy, so that only the mutation under test can fail."""
+    pin = hashlib.sha256((d / "src/theme.json").read_bytes().replace(b"\r\n", b"\n")).hexdigest()
+    f = d / "src/playnite.json"
+    f.write_text(re.sub(r'("sha256": ")[0-9a-f]{64}(")', lambda m: m.group(1) + pin + m.group(2), f.read_text(encoding="utf-8")), encoding="utf-8")
+
+
 def lower_contrast(d: Path):
     f = d / "src/theme.json"
     j = json.loads(f.read_text(encoding="utf-8"))
     j["themes"]["slate"]["text.secondary"] = j["themes"]["slate"]["bg.surface"]
     f.write_text(json.dumps(j, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    repin(d)
 
 
 def change_token(d: Path):
@@ -228,6 +276,7 @@ CASES = [
     ("zip-6", "bytes outside the ZIP structure", trailing(PTHM_SLATE), "--check", "bytes outside the ZIP structure"),
     ("zip-7", "ZIP member content differs from the build", rezip(PTHM_DAY, content=lambda b: b + b"<!-- x -->"), "--check", "member Constants.xaml"),
     ("zip-8", "package missing", delete(PTHM_DAY), "--check", "missing package"),
+    ("zip-9", "duplicate ZIP member", rezip(PTHM_SLATE, dup_member=True), "--check", "duplicate ZIP member"),
     # docs
     ("readme-1", "required README section missing", edit("README.md", sub("## Install\n", "## Setup\n")), "--check", "required section 'Install' is missing"),
     ("readme-2", "NOT TESTED list missing", edit("README.md", lambda s: s.replace("NOT TESTED", "untested")), "--check", "NOT TESTED list is missing"),
@@ -253,6 +302,44 @@ CASES = [
     ("privacy-4", "RFC1918 172.16/12", edit("docs/mapping.md", append(f"\nhost {IP172}\n")), "--check", "RFC1918 172.16/12"),
     ("privacy-5", "RFC1918 192.168/16", edit("qa/qa-run.ps1", append(f"\n# {IP192}\n")), "--check", "RFC1918 192.168/16"),
     ("privacy-6", "internal host name", edit("README.md", append(f"\nsee {HOST}\n")), "--check", "an internal host name"),
+    ("privacy-7", "CGNAT / Tailscale IP (100.64/10)", edit("docs/mapping.md", append(f"\nhost {IPCG}\n")), "--check", "100.64/10"),
+    ("privacy-8", "Tailscale host name (*.ts.net)", edit("README.md", append(f"\nsee {TSNET}\n")), "--check", "*.ts.net"),
+    ("privacy-9", "UNC path", edit("qa/qa-run.ps1", append(f"\n# {UNC}\n")), "--check", "a UNC path"),
+    ("privacy-10", "email that is not a GitHub noreply one", edit("README.md", append(f"\ncontact {EMAIL}\n")), "--check", "not a GitHub noreply one"),
+    ("privacy-11", "/mnt path", edit("docs/qa-report.md", append(f"\n{MNT_PATH}\n")), "--check", "a /mnt path"),
+    ("privacy-12", "a GitHub noreply email is allowed", edit("README.md", append(f"\n{NOREPLY}\n")), "--check", None),
+    ("privacy-13", "name listed in the local .private-patterns", both(private_file(".private-patterns", f"# local\n{PRIV_RX}\n"), edit("README.md", append(f"\nsee {PRIV_WORD}\n"))), "--check", "a private pattern (line 2 of .private-patterns)"),
+    ("privacy-14", "name listed in the file FLATCAP_PRIVATE_PATTERNS points to", both(private_file(".tmp/other.txt", f"{PRIV_RX}\n", env_var=True), edit("docs/mapping.md", append(f"\nsee {PRIV_WORD}\n"))), "--check", "a private pattern (line 1 of other.txt)"),
+    ("privacy-15", "private pattern that is not a regular expression", private_file(".private-patterns", "(unclosed\n"), "--check", "not a valid regular expression"),
+    ("privacy-16", "FLATCAP_PRIVATE_PATTERNS points to nothing", (lambda d: {"FLATCAP_PRIVATE_PATTERNS": str(d / ".tmp" / "missing.txt")}), "--check", "points to a file that does not exist"),
+    # core copy pinned
+    ("core-1", "src/theme.json changed by a byte", edit("src/theme.json", append("\n")), "--check", "differs from the pinned core copy"),
+    ("core-2", "src/theme.json with another accent", edit("src/theme.json", sub('"#9BBFDF"', '"#9BBFE0"')), "--check", "differs from the pinned core copy"),
+    ("core-3", "pin changed in src/playnite.json", json_edit("src/playnite.json", lambda j: j["core"].__setitem__("sha256", "0" * 64)), "--check", "differs from the pinned core copy"),
+    ("core-4", "pin missing", json_edit("src/playnite.json", lambda j: j.pop("core")), "--check", "core.sha256"),
+    ("core-5", "CRLF line endings in src/theme.json do not change the pin", crlf("src/theme.json"), "--check", None),
+    ("core-6", "--sync refuses a changed core", edit("src/theme.json", append("\n")), "--sync", "differs from the pinned core copy"),
+    ("core-7", "--pin-core accepts a deliberate change and --check then passes", edit("src/theme.json", append("\n")), "--pin-core", "+pinned src/theme.json"),
+    # states read from the XAML (Play button hover, list item focus)
+    ("state-1", "Play button hover keeps the main text color on the accent fill", edit("scripts/build.py", sub("\\1{DynamicResource TextBrushDark}\\2", "\\1{DynamicResource TextBrush}\\2")), "--check", "Play button, hover: text.primary on accent.fill"),
+    ("state-2", "focused list item without the text-on-accent patch", edit("scripts/build.py", sub('IsFocused" Value="True">\\n                <Setter Property="Foreground"', 'IsFocused" Value="True">\\n                <Setter Property="Opacity"')), "--check", "state 'List item, keyboard focus without selection'"),
+    ("state-3", "mapping makes the text-on-accent color the main text color", json_edit("src/playnite.json", lambda j: j["constants"]["colors"]["TextColorDark"].__setitem__("token", "text.primary")), "--check", "Play button, hover: text.primary on accent.fill"),
+    ("up-7", "vendored PlayButton.xaml changed", edit(f"{UP}/Desktop/Default/DerivedStyles/PlayButton.xaml", append("\n<!-- edited -->\n")), "--check", "upstream file changed"),
+    # color literals of every spelling
+    ("lit-1", "3-digit hex in a Setter value", edit(f"{SLATE}/CustomControls/SidebarItem.xaml", sub('Value="{DynamicResource TextBrush}"', 'Value="#fff"')), "--check", "color literal #fff"),
+    ("lit-2", "4-digit hex (#ARGB)", edit(f"{DAY}/CustomControls/SidebarItem.xaml", sub('Value="{DynamicResource TextBrush}"', 'Value="#8fff"')), "--check", "color literal #8fff"),
+    ("lit-3", "8-digit hex", edit(f"{SLATE}/Media.xaml", sub('Foreground="{DynamicResource FlatcapWarningBrush}"', 'Foreground="#80FFFFFF"')), "--check", "color literal #80FFFFFF"),
+    ("lit-4", "scRGB literal", edit(f"{DAY}/Media.xaml", sub('Foreground="{DynamicResource FlatcapWarningBrush}"', 'Foreground="sc#1,0.5,0.5,0.5"')), "--check", "color literal sc#1,0.5,0.5,0.5"),
+    ("lit-5", "named color in a Setter Value", edit(f"{SLATE}/Media.xaml", before_close('<Setter Property="Foreground" Value="Tomato" />')), "--check", "named color 'Tomato'"),
+    ("lit-6", "named color in an attribute that is not a brush one (Stroke)", edit(f"{DAY}/Media.xaml", before_close('<Path Stroke="Orange" />')), "--check", "named color 'Orange'"),
+    ("lit-7", "Colors.X static reference", edit(f"{SLATE}/Media.xaml", before_close('<Setter Property="Foreground" Value="{x:Static Colors.Crimson}" />')), "--check", "named color 'Crimson'"),
+    ("lit-8", "SystemColors", edit(f"{DAY}/Media.xaml", before_close('<Setter Property="Background" Value="{DynamicResource {x:Static SystemColors.ControlBrushKey}}" />')), "--check", "SystemColors"),
+    ("lit-9", "named color as element text", edit(f"{SLATE}/Media.xaml", before_close('<SolidColorBrush x:Key="ZzzBrush">Red</SolidColorBrush>')), "--check", "named color 'Red'"),
+    ("lit-10", "opaque named color inside an opacity mask", edit(f"{SLATE}/Views/DetailsViewGameOverview.xaml", sub('Color="Black" Offset="0.3"', 'Color="Red" Offset="0.3"')), "--check", "named color 'Red' in an OpacityMask"),
+    ("lit-11", "hex inside an opacity mask", edit(f"{DAY}/Views/DetailsViewGameOverview.xaml", sub('Color="Black" Offset="0.3"', 'Color="#FF000000" Offset="0.3"')), "--check", "color literal #FF000000 in an OpacityMask"),
+    ("lit-12", "Black outside an opacity mask", edit(f"{SLATE}/Media.xaml", before_close('<Setter Property="Foreground" Value="Black" />')), "--check", "named color 'Black'"),
+    ("lit-13", "LightGray text (the SearchView description) back in", edit(f"{DAY}/Views/SearchView.xaml", sub('Value="{DynamicResource TextBrushDarker}"', 'Value="LightGray"')), "--check", "named color 'LightGray'"),
+    ("readme-5", "link that leaves the repository", edit("README.md", append("\n[core](../00-Flatcap)\n")), "--check", "a link leaves the repository"),
 ]
 
 
@@ -266,17 +353,25 @@ def main() -> int:
             d = Path(t)
             copy_tree(d, a.ref)
             try:
-                if mutate:
-                    mutate(d)
-                r = subprocess.run([sys.executable, "scripts/build.py", cmd], cwd=d, capture_output=True, text=True)
+                env = mutate(d) if mutate else None
+                env = env if isinstance(env, dict) else None  # a mutation may return extra environment variables
+                r = subprocess.run([sys.executable, "scripts/build.py", cmd], cwd=d, capture_output=True, text=True, env={**os.environ, **(env or {})})
                 out = (r.stdout + r.stderr).strip()
                 rc = r.returncode
+                if want and want.startswith("+") and rc == 0:  # a command that must succeed, after which --check must pass too
+                    after = subprocess.run([sys.executable, "scripts/build.py", "--check"], cwd=d, capture_output=True, text=True, env={**os.environ, **(env or {})})
+                    out += "\n" + (after.stdout + after.stderr).strip()
+                    rc = after.returncode
             except AssertionError as e:  # the mutation itself did not apply: the case is broken, not the detector
                 out, rc = f"MUTATION NOT APPLIED: {e}", -1
         if want is None:
             ok = rc == 0
+        elif want.startswith("+"):
+            ok = rc == 0 and want[1:] in out
         else:
             ok = rc not in (0, -1) and re.search(re.escape(want), out) is not None
+        if cid == "privacy-13" and PRIV_WORD in out:  # a private pattern must never be echoed
+            ok = False
         bad += not ok
         first = next((ln for ln in out.splitlines() if want and want in ln), out.splitlines()[0] if out else "")
         rows.append((cid, what, f"{cmd} -> exit {rc}", "PASS" if ok else "FAIL", first[:110]))

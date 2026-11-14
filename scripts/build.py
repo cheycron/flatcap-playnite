@@ -4,10 +4,14 @@
     python3 scripts/build.py --sync     write themes/Desktop/<Id>/, dist/*.pthm and the generated blocks of README.md and docs/*.md;
                                         exit 1 (after writing) if the result does not pass the checks below
     python3 scripts/build.py --check    exit 1 on: a stale generated file, a missing or duplicated <!-- build:x --> marker, an upstream
-                                        Playnite file that changed, a theme.yaml with wrong or duplicated fields, XAML that is not well
-                                        formed, a color literal or an unresolved Flatcap resource in a theme file, a .pthm whose members,
-                                        content or metadata differ from the build, a README without its required sections, a missing or
-                                        wrong-sized screenshot, a private path, IP or host name, or a missed contrast target
+                                        Playnite file that changed, a src/theme.json that is not the pinned core copy, a theme.yaml with
+                                        wrong or duplicated fields, XAML that is not well formed, a color literal (hex of 3 to 8 digits,
+                                        sc#, a named color, SystemColors) or an unresolved Flatcap resource in a theme file, a .pthm whose
+                                        members, content or metadata differ from the build, a README without its required sections, a
+                                        missing or wrong-sized screenshot, a private path, address or host name (generic patterns plus the
+                                        local, git-ignored .private-patterns), or a missed contrast target (including the hover and focus
+                                        states read from the shipped XAML)
+    python3 scripts/build.py --pin-core rewrite the SHA-256 of src/theme.json in src/playnite.json (after copying a new core on purpose)
 
 What it builds
   * themes/Desktop/<Id>/   a theme folder Playnite can load as is (copy it to <Playnite>/Themes/Desktop/). It holds theme.yaml, a
@@ -26,6 +30,7 @@ import argparse
 import hashlib
 import io
 import json
+import os
 import re
 import struct
 import sys
@@ -41,20 +46,38 @@ THEME = ROOT / "src" / "theme.json"
 PORT = ROOT / "src" / "playnite.json"
 MODES = ("slate", "daylight")
 ZIP_DATE = (2026, 1, 1, 0, 0, 0)  # fixed: the .pthm files must not change with the build date
-PRIVACY = [  # strings that must never be committed (personal paths, hosts and profile data)
-    (r"[A-Za-z]:\\+Users", "a Windows user path"), (r"AppData\\+(?:Local|Roaming)", "an AppData path"), (r"/mnt/appdata", "a local server path"),
-    (r"/home/[A-Za-z0-9_.-]", "a home directory path"), (r"/Users/[A-Za-z0-9_.-]", "a macOS home path"),
+PRIVATE_FILE = ROOT / ".private-patterns"  # local, git-ignored: one regular expression per line (see .private-patterns.example)
+PRIVACY = [  # generic patterns for strings that must never be committed: personal paths, private addresses, internal names, personal emails
+    (r"[A-Za-z]:\\+Users", "a Windows user path"), (r"AppData\\+(?:Local|Roaming)", "an AppData path"),
+    (r"/mnt/[A-Za-z0-9_.-]", "a /mnt path"), (r"/home/[A-Za-z0-9_.-]", "a home directory path"), (r"/Users/[A-Za-z0-9_.-]", "a macOS home path"),
+    (r"(?<![\w\\:.])\\\\[A-Za-z0-9_-][\w.-]*\\+[\w$]", "a UNC path"),
     (r"\.review", "the private review folder"),
     (r"(?<![\d.])10\.\d{1,3}\.\d{1,3}\.\d{1,3}(?![\d.])", "a private IP (RFC1918 10/8)"),
     (r"(?<![\d.])172\.(?:1[6-9]|2\d|3[01])\.\d{1,3}\.\d{1,3}(?![\d.])", "a private IP (RFC1918 172.16/12)"),
     (r"(?<![\d.])192\.168\.\d{1,3}\.\d{1,3}(?![\d.])", "a private IP (RFC1918 192.168/16)"),
+    (r"(?<![\d.])100\.(?:6[4-9]|[7-9]\d|1[01]\d|12[0-7])\.\d{1,3}\.\d{1,3}(?![\d.])", "a CGNAT / Tailscale IP (100.64/10)"),
     (r"\b[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.(?:local|lan|internal|intranet|corp|home\.arpa)\b", "an internal host name"),
-    (r"\bcheycron\.com\b", "a private domain"), (r"\bSansa\b", "a private host name"), (r"\bclegane\b", "a private host name"),
+    (r"\b[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.ts\.net\b", "a Tailscale host name (*.ts.net)"),
+    (r"[A-Za-z0-9._%+-]+@(?!(?:[A-Za-z0-9-]+\.)*noreply\.github\.com\b)[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+", "an email address that is not a GitHub noreply one"),
 ]
 SKIP_DIRS = {".git", ".review", "__pycache__", ".tmp", "node_modules"}
 BUILTIN_IDS = {"Playnite_builtin_DefaultDesktop", "Playnite_builtin_DefaultFullscreen"}
-NAMED_COLOR_ATTR = re.compile(r'\b(?:Foreground|Background|Fill|Stroke|BorderBrush|Color)="([A-Za-z]+)"')
-ALLOWED_NAMED = {"Transparent"}
+# every name of System.Windows.Media.Colors (and the Grey spellings the XAML parser accepts)
+WPF_COLORS = {c.lower() for c in """AliceBlue AntiqueWhite Aqua Aquamarine Azure Beige Bisque Black BlanchedAlmond Blue BlueViolet Brown BurlyWood CadetBlue
+Chartreuse Chocolate Coral CornflowerBlue Cornsilk Crimson Cyan DarkBlue DarkCyan DarkGoldenrod DarkGray DarkGreen DarkKhaki DarkMagenta
+DarkOliveGreen DarkOrange DarkOrchid DarkRed DarkSalmon DarkSeaGreen DarkSlateBlue DarkSlateGray DarkTurquoise DarkViolet DeepPink DeepSkyBlue
+DimGray DodgerBlue Firebrick FloralWhite ForestGreen Fuchsia Gainsboro GhostWhite Gold Goldenrod Gray Green GreenYellow Honeydew HotPink IndianRed
+Indigo Ivory Khaki Lavender LavenderBlush LawnGreen LemonChiffon LightBlue LightCoral LightCyan LightGoldenrodYellow LightGray LightGreen LightPink
+LightSalmon LightSeaGreen LightSkyBlue LightSlateGray LightSteelBlue LightYellow Lime LimeGreen Linen Magenta Maroon MediumAquamarine MediumBlue
+MediumOrchid MediumPurple MediumSeaGreen MediumSlateBlue MediumSpringGreen MediumTurquoise MediumVioletRed MidnightBlue MintCream MistyRose
+Moccasin NavajoWhite Navy OldLace Olive OliveDrab Orange OrangeRed Orchid PaleGoldenrod PaleGreen PaleTurquoise PaleVioletRed PapayaWhip PeachPuff
+Peru Pink Plum PowderBlue Purple Red RosyBrown RoyalBlue SaddleBrown Salmon SandyBrown SeaGreen SeaShell Sienna Silver SkyBlue SlateBlue SlateGray
+Snow SpringGreen SteelBlue Tan Teal Thistle Tomato Transparent Turquoise Violet Wheat White WhiteSmoke Yellow YellowGreen Grey DarkGrey DimGrey
+LightGrey SlateGrey DarkSlateGrey LightSlateGrey""".split()}
+ALLOWED_NAMED = {"transparent"}  # paints nothing: the hit-test background of a control
+MASK_NAMED = {"black", "transparent"}  # an opacity mask only decides how opaque each pixel is (Black = opaque, Transparent = clear)
+HEX_LITERAL = re.compile(r"(?<![&\w#])#[0-9A-Fa-f]{3,8}\b")
+ATTR_VALUE = re.compile(r'[\w:.]+\s*=\s*"([^"]*)"')
 README_SECTIONS = ["Install", "Use it", "Tokens and contrast", "Fonts", "Accessibility", "Compatibility", "Third-party code and licenses",
                    "Contributing", "License"]
 DOC_BLOCKS = {"README.md": ["themes", "contrast"],
@@ -230,7 +253,9 @@ PATCHES: list[tuple[str, list[tuple[str, str, int, str]]]] = [
          r'\1FontSize="{DynamicResource FontSizeSmall}"\2Foreground="{DynamicResource FlatcapBadgeTextBrush}"', 1,
          "badge count: text on the badge color, and not under the core's 13px minimum")]),
     ("Views/SearchView.xaml", [
-        (lit('Background="#003f59"'), 'Background="{DynamicResource FlatcapSelectedBrush}"', 2, "hovered and selected search result were a fixed teal")]),
+        (lit('Background="#003f59"'), 'Background="{DynamicResource FlatcapSelectedBrush}"', 2, "hovered and selected search result were a fixed teal"),
+        (lit('<Setter Property="Foreground" Value="LightGray" />'), '<Setter Property="Foreground" Value="{DynamicResource TextBrushDarker}" />', 1,
+         "description of a search result was a fixed light grey: unreadable on Daylight")]),
     ("DerivedStyles/GridViewItemTemplate.xaml", [
         (lit('Background="#99000000"'), 'Background="{DynamicResource FlatcapScrimBrush}"', 1, "name overlay on a cover: black at 60%"),
         (lit('Background="#AA000000"'), 'Background="{DynamicResource FlatcapScrimBrush}"', 1, "hover and uninstalled overlay on a cover: black at 67%"),
@@ -247,6 +272,18 @@ PATCHES: list[tuple[str, list[tuple[str, str, int, str]]]] = [
          "the game title had a black drop shadow that smudges the text on a light surface; Flatcap is flat")]),
     ("Views/GridViewGameOverview.xaml", [
         (lit('<DropShadowEffect ShadowDepth="3"/>'), '<DropShadowEffect ShadowDepth="0" Opacity="0"/>', 1, "same drop shadow on the game title of the grid view's side panel")]),
+    ("DerivedStyles/PlayButton.xaml", [
+        (r'(<Trigger Property="IsMouseOver" Value="true">\s*<Setter Property="Foreground" Value=")\{DynamicResource TextBrush\}(" />)',
+         r'\1{DynamicResource TextBrushDark}\2', 1,
+         "on hover the text turned to the main text color on the accent fill (1.38:1 in Slate, 1.88:1 in Daylight); it keeps the text-on-accent color")]),
+    ("DefaultControls/ListBox.xaml", [
+        (r'(<Style\.Triggers>\s*<Trigger Property="Selector\.IsSelected" Value="True">\s*<Setter Property="Foreground" Value="\{DynamicResource TextBrushDark\}" />\s*</Trigger>)',
+         '\\1\n            <Trigger Property="IsFocused" Value="True">\n                <Setter Property="Foreground" Value="{DynamicResource TextBrushDark}" />\n            </Trigger>', 1,
+         "an item with keyboard focus but no selection shows the accent fill with the normal text color (1.38:1 in Slate, 1.88:1 in Daylight); the text takes the text-on-accent color there too")]),
+    ("DerivedStyles/DetailsHyperlink.xaml", [
+        (lit('<Setter Property="Foreground" Value="LightGray" />'), '<Setter Property="Foreground" Value="{DynamicResource TextBrushDarker}" />', 1,
+         "fixed light grey link text, unreadable on Daylight (no Default 10.64 view uses this style; an add-on may)"),
+        (lit('<Setter Property="Foreground" Value="White" />'), '<Setter Property="Foreground" Value="{DynamicResource TextBrush}" />', 1, "same, hovered link: fixed white")]),
     ("Media.xaml", [
         (lit('Foreground="OrangeRed"'), 'Foreground="{DynamicResource FlatcapDangerBrush}"', 2, "exit and remove icons"),
         (lit('Foreground="Yellow"'), 'Foreground="{DynamicResource FlatcapWarningBrush}"', 1, "favorite icon")]),
@@ -337,6 +374,10 @@ def pthm_errors(theme: dict, p: dict) -> list[str]:
                     continue
                 infos = z.infolist()
                 names = [i.filename for i in infos]
+                dups = sorted({n for n in names if names.count(n) > 1})
+                if dups:
+                    errs.append(f"{rel}: duplicate ZIP member(s) {dups}; a package must hold each file once (run --sync)")
+                    continue
                 if names != [r.filename for r in ref]:
                     errs.append(f"{rel}: members are {names}, expected {[r.filename for r in ref]}")
                     continue
@@ -463,12 +504,7 @@ def xml_errors(theme: dict, p: dict) -> list[str]:
                     errs.append(f"{rel}: resource {k} is used but not defined in this theme's Constants.xaml")
             if f.name == "Constants.xaml" and f.parent == d:
                 continue
-            # an opacity mask only decides how opaque each pixel is (Black = opaque, Transparent = clear), it never paints a color
-            text = re.sub(r"<(\w+\.\w*OpacityMask)>.*?</\1>", "", text, flags=re.S)
-            for lit_ in sorted(set(re.findall(r"#[0-9A-Fa-f]{6,8}\b", re.sub(r"&#x[0-9A-Fa-f]+;", "", text)))):
-                errs.append(f"{rel}: color literal {lit_} (use a Constants.xaml brush, which comes from a Flatcap token)")
-            for name in sorted(set(NAMED_COLOR_ATTR.findall(text)) - ALLOWED_NAMED):
-                errs.append(f"{rel}: named color {name!r} (use a Constants.xaml brush)")
+            errs += color_errors(rel, text)
             # Resources that Playnite's own Default files define (styles, fonts) or the app supplies (LOC*) are not vendored here: a patch may
             # only use ones the original file already used, so it cannot introduce an unresolved name
             orig_rel = f.relative_to(d).as_posix()
@@ -493,8 +529,69 @@ def xml_errors(theme: dict, p: dict) -> list[str]:
     return errs
 
 
-def token_errors(theme: dict, p: dict) -> list[str]:
+def color_errors(rel: Path, text: str) -> list[str]:
+    """Color literals in a shipped XAML file (comments included: a commented-out literal is still a literal waiting to come back).
+    Every color must come from a Constants.xaml brush. Flagged: hex of 3 to 8 digits, sc#, a name of System.Windows.Media.Colors in any
+    attribute value or element text (Setter Value included, Colors.X references too), and SystemColors. Allowed: Transparent (it paints
+    nothing) and, inside an opacity mask only, Black (a mask decides opacity, it never paints a color)."""
     errs = []
+    for m in re.finditer(r"<(\w+\.\w*OpacityMask)>(.*?)</\1>", text, flags=re.S):
+        for lit_ in sorted(set(HEX_LITERAL.findall(m.group(2)))):
+            errs.append(f"{rel}: color literal {lit_} in an OpacityMask (only Black and Transparent are allowed there)")
+        for v in ATTR_VALUE.findall(m.group(2)):
+            if v.strip().lower() in WPF_COLORS and v.strip().lower() not in MASK_NAMED:
+                errs.append(f"{rel}: named color {v.strip()!r} in an OpacityMask (only Black and Transparent are allowed there)")
+    text = re.sub(r"<(\w+\.\w*OpacityMask)>.*?</\1>", "", text, flags=re.S)
+    plain = re.sub(r"&#x?[0-9A-Fa-f]+;", "", text)
+    for lit_ in sorted(set(HEX_LITERAL.findall(plain))):
+        errs.append(f"{rel}: color literal {lit_} (use a Constants.xaml brush, which comes from a Flatcap token)")
+    for lit_ in sorted(set(re.findall(r"\bsc#[-\d.,\s]+", plain))):
+        errs.append(f"{rel}: color literal {lit_.strip()} (scRGB; use a Constants.xaml brush)")
+    values = ATTR_VALUE.findall(plain) + re.findall(r">\s*([^<>\s][^<>]*?)\s*<", plain)
+    named = {v.strip() for v in values if v.strip().lower() in WPF_COLORS and v.strip().lower() not in ALLOWED_NAMED}
+    named |= {n for v in values for n in re.findall(r"\bColors\.([A-Za-z]+)\b", v) if n.lower() in WPF_COLORS and n.lower() not in ALLOWED_NAMED}
+    for name in sorted(named):
+        errs.append(f"{rel}: named color {name!r} (use a Constants.xaml brush)")
+    if re.search(r"\bSystemColors\b", plain):
+        errs.append(f"{rel}: SystemColors (a Windows system color follows the user's Windows theme, not the Flatcap tokens; use a Constants.xaml brush)")
+    return errs
+
+
+def private_patterns() -> tuple[list[tuple[re.Pattern, str]], list[str]]:
+    """Names of the maintainer's own machines, domains and users: kept out of the repository, in a local file that git ignores
+    (.private-patterns, or the file FLATCAP_PRIVATE_PATTERNS points to). One regular expression per line, # starts a comment."""
+    env = os.environ.get("FLATCAP_PRIVATE_PATTERNS")
+    path = Path(env) if env else PRIVATE_FILE
+    if not path.is_file():
+        return [], ([f"FLATCAP_PRIVATE_PATTERNS points to a file that does not exist ({path.name})"] if env else [])
+    pats, errs = [], []
+    for n, ln in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        ln = ln.strip()
+        if ln and not ln.startswith("#"):
+            try:
+                pats.append((re.compile(ln, re.I), f"a private pattern (line {n} of {path.name})"))
+            except re.error as e:
+                errs.append(f"{path.name} line {n}: not a valid regular expression ({e})")
+    return pats, errs
+
+
+def core_sha256() -> str:
+    return hashlib.sha256(THEME.read_bytes().replace(b"\r\n", b"\n")).hexdigest()  # line endings must not matter on a Windows checkout
+
+
+def core_errors(p: dict) -> list[str]:
+    pin = p.get("core", {}).get("sha256", "")
+    if not re.fullmatch(r"[0-9a-f]{64}", pin):
+        return ["src/playnite.json: core.sha256 (the pinned SHA-256 of src/theme.json) is missing or not a SHA-256"]
+    got = core_sha256()
+    if got != pin:
+        return [f"src/theme.json differs from the pinned core copy (SHA-256 {got}, src/playnite.json pins {pin}). A core change is taken on "
+                f"purpose: copy the file from {p['core']['repo']}, run --pin-core, then --sync"]
+    return []
+
+
+def token_errors(theme: dict, p: dict) -> list[str]:
+    errs = core_errors(p)
     cs = p["constants"]
     for m in MODES:
         t = theme["themes"][m]
@@ -532,7 +629,7 @@ def pairs_raw() -> list[tuple]:
     out = []
     for s, where in SURFACES:
         out.append((f"text.primary on bg.{s} ({where})", "text.primary", f"bg.{s}", 7.0, "text", 1.0))
-    for s, where in SURFACES[:4]:
+    for s, where in SURFACES:
         out.append((f"text.secondary on bg.{s} ({where})", "text.secondary", f"bg.{s}", 5.0, "text", 1.0))
     for s, where in SURFACES:
         out.append((f"accent.fill on bg.{s} (button text, icons, links, selection border)", "accent.fill", f"bg.{s}", 4.5, "text", 1.0))
@@ -575,17 +672,70 @@ def ratio(fg: str, bg: str, op: float = 1.0) -> float:
     return C.contrast(f, b)
 
 
+# States whose text and fill are chosen by the XAML, not by the token pairs above. The foreground and background resources are READ from the
+# shipped file (the vendored one with the patches) and resolved to tokens through src/playnite.json, so a state that keeps the wrong text color
+# fails here: the pair "accent.on on accent.fill" passing says nothing about a state that draws TextBrush on GlyphBrush.
+# (label, file, regex of the foreground resource, regex of the fill resource, target)
+STATE_CONTRACTS = [
+    ("Play button, rest", "DerivedStyles/PlayButton.xaml", r'<Setter Property="Foreground" Value="\{DynamicResource (\w+)\}" />',
+     r'<Setter Property="Background" Value="\{DynamicResource (\w+)\}" />', 4.5),
+    ("Play button, hover", "DerivedStyles/PlayButton.xaml",
+     r'<Trigger Property="IsMouseOver" Value="true">\s*<Setter Property="Foreground" Value="\{DynamicResource (\w+)\}" />',
+     r'<Setter Property="Background" Value="\{DynamicResource (\w+)\}" />', 4.5),
+    ("List item, selected", "DefaultControls/ListBox.xaml",
+     r'<Style\.Triggers>\s*<Trigger Property="Selector\.IsSelected" Value="True">\s*<Setter Property="Foreground" Value="\{DynamicResource (\w+)\}" />',
+     r'x:Name="SelectedRectangle"[^>]*?Background="\{DynamicResource (\w+)\}"', 4.5),
+    ("List item, keyboard focus without selection", "DefaultControls/ListBox.xaml",
+     r'<Trigger Property="IsFocused" Value="True">\s*<Setter Property="Foreground" Value="\{DynamicResource (\w+)\}" />',
+     r'x:Name="SelectedRectangle"[^>]*?Background="\{DynamicResource (\w+)\}"', 4.5),
+]
+
+
+def resource_token(p: dict, key: str) -> str:
+    """The Flatcap token behind a Playnite brush resource, through the mapping in src/playnite.json."""
+    cs = p["constants"]
+    for grp in ("brushes", "added"):
+        if key in cs[grp]:
+            return cs[grp][key]["token"]
+    m = re.fullmatch(r"(\w+?)Brush(Dark|Darker)?", key)  # TextBrush -> TextColor, TextBrushDark -> TextColorDark
+    if m and f"{m.group(1)}Color{m.group(2) or ''}" in cs["colors"]:
+        return cs["colors"][f"{m.group(1)}Color{m.group(2) or ''}"]["token"]
+    raise KeyError(f"resource {key} has no token in src/playnite.json")
+
+
+def state_rows(theme: dict, p: dict) -> tuple[list[dict], list[str]]:
+    out, errs = [], []
+    for label, rel, fg_re, bg_re, target in STATE_CONTRACTS:
+        text = patched(p, rel) if rel in dict(PATCHES) else upstream_text(p, rel)
+        fg, bg = re.search(fg_re, text), re.search(bg_re, text)
+        if not fg or not bg:
+            errs.append(f"state '{label}' ({rel}): no {'foreground' if not fg else 'fill'} resource found; the state keeps the text color of the control "
+                        f"over a fill (contrast not guaranteed)")
+            continue
+        try:
+            ft, bt = resource_token(p, fg.group(1)), resource_token(p, bg.group(1))
+        except KeyError as e:
+            errs.append(f"state '{label}' ({rel}): {e}")
+            continue
+        for m in MODES:
+            a, b = tk(theme, m, ft), tk(theme, m, bt)
+            out.append({"mode": m, "label": f"{label}: {ft} on {bt} ({fg.group(1)} on {bg.group(1)}, read from {rel})", "fg": a, "bg": b,
+                        "target": target, "group": "text", "ratio": ratio(a, b)})
+    return out, errs
+
+
 def rows(theme: dict, p: dict) -> list[dict]:
     out = []
     for m in MODES:
         for label, fg, bg, target, group, op in pairs_raw():
             a, b = tk(theme, m, fg), tk(theme, m, bg)
             out.append({"mode": m, "label": label, "fg": a, "bg": b, "target": target, "group": group, "ratio": ratio(a, b, op)})
-    return out + scrim_rows(theme, p)
+    return out + scrim_rows(theme, p) + state_rows(theme, p)[0]
 
 
 def contrast_errors(theme: dict, p: dict) -> list[str]:
-    return [f"{r['mode']}: {r['label']} = {r['ratio']:.2f} < {r['target']} (contrast target missed)" for r in rows(theme, p) if r["ratio"] < r["target"]]
+    return ([f"{r['mode']}: {r['label']} = {r['ratio']:.2f} < {r['target']} (contrast target missed)" for r in rows(theme, p) if r["ratio"] < r["target"]]
+            + state_rows(theme, p)[1])
 
 
 # --- docs: markers, blocks, README, images, privacy -----------------------------------------------------------------
@@ -629,7 +779,7 @@ def image_errors() -> list[str]:
             errs.append(f"images/{name}: is {png_size(f)}, expected a PNG of {IMAGE_SIZE[0]}x{IMAGE_SIZE[1]}")
         if f"images/{name}" not in readme:
             errs.append(f"README.md does not show images/{name}")
-    for ref in sorted(set(re.findall(r"images/([\w.-]+\.png)", readme))):
+    for ref in sorted(set(re.findall(r"(?<![\w/.-])images/([\w.-]+\.png)", readme))):
         if not (ROOT / "images" / ref).exists():
             errs.append(f"README.md references images/{ref}, which does not exist")
     return errs
@@ -646,6 +796,8 @@ def readme_errors() -> list[str]:
                          ("not affiliated", "the not-affiliated notice")):
         if needle not in text:
             errs.append(f"README.md: {what} is missing")
+    if re.search(r"\]\(\.\./", text):
+        errs.append("README.md: a link leaves the repository (../); use an absolute https URL")
     if not (ROOT / "LICENSE").exists() or "MIT License" not in (ROOT / "LICENSE").read_text(encoding="utf-8"):
         errs.append("LICENSE (MIT) is missing")
     return errs
@@ -653,10 +805,12 @@ def readme_errors() -> list[str]:
 
 def privacy_errors() -> list[str]:
     errs = []
+    private, perrs = private_patterns()
+    errs += perrs
     files = [x for x in ROOT.rglob("*") if x.is_file() and not SKIP_DIRS & set(x.relative_to(ROOT).parts)]
     for f in files:
         rel = f.relative_to(ROOT)
-        if rel.as_posix() in ("scripts/build.py", ".gitignore") or rel.parts[0] == "upstream":
+        if rel.as_posix() in ("scripts/build.py", ".gitignore", PRIVATE_FILE.name) or rel.parts[0] == "upstream":
             continue
         if f.suffix == ".pthm":
             with zipfile.ZipFile(f) as z:
@@ -670,6 +824,9 @@ def privacy_errors() -> list[str]:
         for pat, what in PRIVACY:
             if re.search(pat, data):
                 errs.append(f"{rel}: contains {what} ({pat})")
+        for rx, what in private:  # the pattern itself is not printed: it is private
+            if rx.search(data):
+                errs.append(f"{rel}: contains {what}")
     return errs
 
 
@@ -746,7 +903,11 @@ def md_patches(theme: dict, p: dict) -> str:
         for pat, repl, count, why in items:
             old = re.sub(r"\\(.)", r"\1", pat)
             old = re.sub(r"\(\\s\+\)|\(<TextBlock.*?\)", "", old) if "TextBlock" in pat else old
-            if "Notifications" in pat:
+            if "IsMouseOver" in pat and "PlayButton" in rel:
+                chg = "`Foreground` of the `IsMouseOver` trigger: `{DynamicResource TextBrush}` -> `{DynamicResource TextBrushDark}`"
+            elif "IsFocused" in repl:
+                chg = "adds to the `ListBoxItem` style triggers: `<Trigger Property=\"IsFocused\" Value=\"True\">` setting `Foreground` to `{DynamicResource TextBrushDark}`"
+            elif "Notifications" in pat:
                 chg = "`FontSize=\"12\"` -> `{DynamicResource FontSizeSmall}`; `Foreground=TextBrush` -> `FlatcapBadgeTextBrush` (badge count `TextBlock`)"
             else:
                 chg = f"`{old}` -> `{repl}`"
@@ -848,7 +1009,17 @@ def main() -> int:
     g = ap.add_mutually_exclusive_group(required=True)
     g.add_argument("--sync", action="store_true")
     g.add_argument("--check", action="store_true")
+    g.add_argument("--pin-core", action="store_true")
     a = ap.parse_args()
+    if a.pin_core:
+        text = PORT.read_text(encoding="utf-8")
+        new, n = re.subn(r'("sha256": ")[0-9a-f]{64}(")', lambda m: m.group(1) + core_sha256() + m.group(2), text)
+        if n != 1:
+            print("src/playnite.json: expected exactly one core.sha256 to rewrite")
+            return 1
+        PORT.write_text(new, encoding="utf-8")
+        print(f"pinned src/theme.json: {core_sha256()}")
+        return 0
     theme, p = load(), port()
     pre = token_errors(theme, p) + upstream_errors(p)
     if pre:

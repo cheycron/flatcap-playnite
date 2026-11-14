@@ -7,7 +7,7 @@ How Flatcap 2.0 ([`src/theme.json`](../src/theme.json)) lands in Playnite 10.64'
 Playnite loads **only the files a theme ships** and takes every other file from its own Default theme. So a theme should ship only what it changes (the documentation says the same). Every Default file is plain XAML, and almost all colors, fonts and sizes live in one file, `Constants.xaml`. Flatcap therefore ships:
 
 1. a generated `Constants.xaml`: the upstream file with the values replaced by tokens, same keys, same order, plus a few new brushes;
-2. ten other Default files, copied with small patches, where the Default theme writes a color or an effect directly instead of using a resource (a drop shadow on a title, a sidebar icon color, an overlay on a cover);
+2. thirteen other Default files, copied with small patches, where the Default theme writes a color or an effect directly instead of using a resource (a drop shadow on a title, a sidebar icon color, an overlay on a cover) or draws the wrong text color in a state (the Play button on hover, a focused list item);
 3. `theme.yaml` and `LICENSE.txt`.
 
 ## Upstream base
@@ -21,8 +21,11 @@ The unmodified files, as shipped in the Playnite 10.64 release archive (`10.64.7
 | `upstream/playnite-10.64/Desktop/Default/CustomControls/SidebarItem.xaml` | `ae8057910b0c61f56d077c6a2e95a5e2988324dafe8af7d8304668cdb7367b1a` |
 | `upstream/playnite-10.64/Desktop/Default/CustomControls/TopPanelItem.xaml` | `5d7ea5d13e63f19b5840c80af43c758b3b942da44ebaf3a434dd44e63e2a7ee9` |
 | `upstream/playnite-10.64/Desktop/Default/DefaultControls/DataGrid.xaml` | `4f27fe4f902d66129d2aff2a7d9297a1c8353a0aae0243b23d485dbe9d9fc218` |
+| `upstream/playnite-10.64/Desktop/Default/DefaultControls/ListBox.xaml` | `60dcfc4d74f21af8afe139b9bb2efa4fdad8544d955619dd36f4b2f53de566be` |
 | `upstream/playnite-10.64/Desktop/Default/DefaultControls/ProgressBar.xaml` | `94b9ad83a6b2fbd8df733daccac0d5fc27ca4588884231b2ba5a62e4255b94c6` |
+| `upstream/playnite-10.64/Desktop/Default/DerivedStyles/DetailsHyperlink.xaml` | `e9a3e9ee7f452c9c6e0234adab1217472f30b57643e7f02fd7df667011932a09` |
 | `upstream/playnite-10.64/Desktop/Default/DerivedStyles/GridViewItemTemplate.xaml` | `764f6b8b406cdc485c358dbdd27c60590b958e71d35432e80360e623542cf756` |
+| `upstream/playnite-10.64/Desktop/Default/DerivedStyles/PlayButton.xaml` | `550ab1e4d9c5d69b3aaf49671ef37c788c39def7fb0fae89178a9b11116aa3b0` |
 | `upstream/playnite-10.64/Desktop/Default/Media.xaml` | `a58e417447b5aef01b82b3dbccd65417baef3a78941b31036ac11f3338640976` |
 | `upstream/playnite-10.64/Desktop/Default/Views/DetailsViewGameOverview.xaml` | `aa7233b6d209dc0a550f4546c454be78ed916284b2af4e2e9c4737a0d710ee72` |
 | `upstream/playnite-10.64/Desktop/Default/Views/GridViewGameOverview.xaml` | `337f235af4c6d2af55520eec4a6f78a18541b21014cb6f5800b239aa4fc2b246` |
@@ -113,6 +116,7 @@ Each patch replaces an exact string and the build fails if the string matches a 
 | `Views/TopPanel.xaml` | `Background="OrangeRed"` -> `Background="{DynamicResource FlatcapBadgeBrush}"` | 1 | notification badge |
 | `Views/TopPanel.xaml` | `FontSize="12"` -> `{DynamicResource FontSizeSmall}`; `Foreground=TextBrush` -> `FlatcapBadgeTextBrush` (badge count `TextBlock`) | 1 | badge count: text on the badge color, and not under the core's 13px minimum |
 | `Views/SearchView.xaml` | `Background="#003f59"` -> `Background="{DynamicResource FlatcapSelectedBrush}"` | 2 | hovered and selected search result were a fixed teal |
+| `Views/SearchView.xaml` | `<Setter Property="Foreground" Value="LightGray" />` -> `<Setter Property="Foreground" Value="{DynamicResource TextBrushDarker}" />` | 1 | description of a search result was a fixed light grey: unreadable on Daylight |
 | `DerivedStyles/GridViewItemTemplate.xaml` | `Background="#99000000"` -> `Background="{DynamicResource FlatcapScrimBrush}"` | 1 | name overlay on a cover: black at 60% |
 | `DerivedStyles/GridViewItemTemplate.xaml` | `Background="#AA000000"` -> `Background="{DynamicResource FlatcapScrimBrush}"` | 1 | hover and uninstalled overlay on a cover: black at 67% |
 | `DerivedStyles/GridViewItemTemplate.xaml` | `TextWrapping="Wrap" Margin="5"` -> `TextWrapping="Wrap" Margin="5" Foreground="{DynamicResource FlatcapScrimTextBrush}"` | 1 | the name drawn on the overlay must contrast with the overlay, not with the window |
@@ -121,9 +125,23 @@ Each patch replaces an exact string and the build fails if the string matches a 
 | `DefaultControls/ProgressBar.xaml` | `<Setter Property="Foreground" Value="{DynamicResource HoverBrush}"/>` -> `<Setter Property="Foreground" Value="{DynamicResource GlyphBrush}"/>` | 1 | the fill used the hover color, which Flatcap makes a quiet surface; the fill must be the accent |
 | `Views/DetailsViewGameOverview.xaml` | `<DropShadowEffect ShadowDepth="3" RenderingBias="Quality"/>` -> `<DropShadowEffect ShadowDepth="0" Opacity="0" RenderingBias="Quality"/>` | 1 | the game title had a black drop shadow that smudges the text on a light surface; Flatcap is flat |
 | `Views/GridViewGameOverview.xaml` | `<DropShadowEffect ShadowDepth="3"/>` -> `<DropShadowEffect ShadowDepth="0" Opacity="0"/>` | 1 | same drop shadow on the game title of the grid view's side panel |
+| `DerivedStyles/PlayButton.xaml` | `Foreground` of the `IsMouseOver` trigger: `{DynamicResource TextBrush}` -> `{DynamicResource TextBrushDark}` | 1 | on hover the text turned to the main text color on the accent fill (1.38:1 in Slate, 1.88:1 in Daylight); it keeps the text-on-accent color |
+| `DefaultControls/ListBox.xaml` | adds to the `ListBoxItem` style triggers: `<Trigger Property="IsFocused" Value="True">` setting `Foreground` to `{DynamicResource TextBrushDark}` | 1 | an item with keyboard focus but no selection shows the accent fill with the normal text color (1.38:1 in Slate, 1.88:1 in Daylight); the text takes the text-on-accent color there too |
+| `DerivedStyles/DetailsHyperlink.xaml` | `<Setter Property="Foreground" Value="LightGray" />` -> `<Setter Property="Foreground" Value="{DynamicResource TextBrushDarker}" />` | 1 | fixed light grey link text, unreadable on Daylight (no Default 10.64 view uses this style; an add-on may) |
+| `DerivedStyles/DetailsHyperlink.xaml` | `<Setter Property="Foreground" Value="White" />` -> `<Setter Property="Foreground" Value="{DynamicResource TextBrush}" />` | 1 | same, hovered link: fixed white |
 | `Media.xaml` | `Foreground="OrangeRed"` -> `Foreground="{DynamicResource FlatcapDangerBrush}"` | 2 | exit and remove icons |
 | `Media.xaml` | `Foreground="Yellow"` -> `Foreground="{DynamicResource FlatcapWarningBrush}"` | 1 | favorite icon |
 <!-- /build:patches -->
+
+### Why two 17 KB views are shipped for one attribute
+
+`Views/DetailsViewGameOverview.xaml` and `Views/GridViewGameOverview.xaml` are 17 KB each and are patched only to set the shadow of the game title to `ShadowDepth="0" Opacity="0"`. A smaller route was looked for and does not exist: the `DropShadowEffect` is written as a **local value** (`<TextBlock.Effect>`) on the `PART_TextDisplayName` element inside the control template of each view. In WPF a local value beats every style, so a style or resource that Flatcap could ship in a small file (an implicit `TextBlock` style, a `DerivedStyles` override) cannot replace it, and Playnite offers no resource key for it. The only way to change it is to ship the file that holds it, whole. The cost is small in the package: in the `.pthm` each of the two files compresses to about 2.4 KB (the whole package is about 20 KB). The alternative, leaving Playnite's black shadow (3 px, 100% opacity) under a dark-blue title on Daylight, was seen to smudge the text, which is why it was removed.
+
+### States checked from the XAML
+
+The token pairs under Contrast say which colors are *allowed* to meet. Some states choose their own text color in the XAML, and the Default theme gets two of them wrong for any accent that is not very dark: the Play button on hover and a list item with focus but no selection both drew the normal text color on the accent fill (1.38:1 in Slate, 1.88:1 in Daylight). `--check` therefore reads the foreground and the fill of each state from the shipped file, resolves them to tokens through `src/playnite.json` and holds them to 4.5:1; the rows appear in the Contrast table ("read from ..."). If a patch is removed, or the mapping makes `TextBrushDark` a poor color on `GlyphBrush`, `--check` fails.
+
+Not changed, and why: `DefaultControls/ListView.xaml` and `ComboBox.xaml` already switch the text to `TextBrushDark` for the selected row, and do not show the accent fill for focus; `DerivedStyles/DetailsHyperlink.xaml` has no `Fill`, only fixed `LightGray` and `White` text colors, no Default 10.64 view uses the style, and it is patched to `TextBrushDarker` / `TextBrush` because an add-on may use it and fixed light greys are unreadable on Daylight. Note on the review's wording: there is no `Fill="{DynamicResource GlyphBrush}"` in that file; the `Fill=GlyphBrush` rectangles are in `ListView.xaml`, `ComboBox.xaml`, `Slider.xaml` and `SliderEx.xaml`: all fills with no text drawn on them (the list and combo box ones are covered by the state rows above).
 
 ## Shipped files
 
@@ -134,8 +152,11 @@ Each patch replaces an exact string and the build fails if the string matches a 
 | `CustomControls/SidebarItem.xaml` | yes | upstream file with the patches above |
 | `CustomControls/TopPanelItem.xaml` | yes | upstream file with the patches above |
 | `DefaultControls/DataGrid.xaml` | yes | upstream file with the patches above |
+| `DefaultControls/ListBox.xaml` | yes | upstream file with the patches above |
 | `DefaultControls/ProgressBar.xaml` | yes | upstream file with the patches above |
+| `DerivedStyles/DetailsHyperlink.xaml` | yes | upstream file with the patches above |
 | `DerivedStyles/GridViewItemTemplate.xaml` | yes | upstream file with the patches above |
+| `DerivedStyles/PlayButton.xaml` | yes | upstream file with the patches above |
 | `LICENSE.txt` | yes | generated: MIT license of this repository and of Playnite |
 | `Media.xaml` | yes | upstream file with the patches above |
 | `Views/DetailsViewGameOverview.xaml` | yes | upstream file with the patches above |
@@ -145,11 +166,11 @@ Each patch replaces an exact string and the build fails if the string matches a 
 | `theme.yaml` | yes | generated: manifest |
 <!-- /build:files -->
 
-Playnite files that Flatcap does **not** ship are used unchanged from the Default theme and only use resources that this `Constants.xaml` defines. One exception is documented: `ImageOpacityMask` gradients (a `Black` stop that only controls opacity in the game details background) are left as in Playnite, because an opacity mask never paints a color.
+Playnite files that Flatcap does **not** ship are used unchanged from the Default theme and only use resources that this `Constants.xaml` defines. One exception is documented, and enforced by `--check`: the opacity mask of the game details background (`<... .OpacityMask>`, a `Black` stop that only controls opacity) is left as in Playnite, because an opacity mask never paints a color. Inside an opacity mask only `Black` and `Transparent` are accepted; any other name or any hex value there fails. Everywhere else the check refuses hex of 3 to 8 digits, `sc#`, any name of `System.Windows.Media.Colors` (in any attribute value, `Setter Value` included, and as `Colors.X`) and `SystemColors`; only `Transparent` is accepted, because it paints nothing.
 
 ## Contrast
 
-Pairs are the foreground and background that Playnite actually combines. `fg opacity` is always 1, because the Default theme dims nothing with an alpha on text. The "overlay" rows blend the scrim (the `bg.canvas` token at 60% alpha, `FlatcapScrimBrush`) over a pure white and a pure black cover and keep the lower ratio. Rows marked report-only are decorative separators, listed for transparency and not a target.
+Pairs are the foreground and background that Playnite actually combines. `fg opacity` is always 1, because the Default theme dims nothing with an alpha on text. The "overlay" rows blend the scrim (the `bg.canvas` token at 80% alpha, `FlatcapScrimBrush`; in Daylight the scrim is therefore light, and Playnite's *Darken uninstalled* lightens there) over a pure white and a pure black cover and keep the lower ratio. Rows marked report-only are decorative separators, listed for transparency and not a target.
 
 <!-- build:contrast -->
 | Theme | Pair | Ratio | Target | Result |
@@ -163,6 +184,7 @@ Pairs are the foreground and background that Playnite actually combines. `fg opa
 | slate | text.secondary on bg.surface (grid items, data grid) `#AEB8C4` / `#20252B` | 7.68 | 5 | pass |
 | slate | text.secondary on bg.raised (buttons, popups, menus, tooltips, top panel buttons) `#AEB8C4` / `#292F36` | 6.73 | 5 | pass |
 | slate | text.secondary on bg.hover (hovered list rows, menu items, sidebar items) `#AEB8C4` / `#323A43` | 5.74 | 5 | pass |
+| slate | text.secondary on bg.selected (search results (hovered, selected)) `#AEB8C4` / `#263E53` | 5.51 | 5 | pass |
 | slate | accent.fill on bg.canvas (button text, icons, links, selection border) `#9BBFDF` / `#191D22` | 8.80 | 4.5 | pass |
 | slate | accent.fill on bg.surface (button text, icons, links, selection border) `#9BBFDF` / `#20252B` | 8.02 | 4.5 | pass |
 | slate | accent.fill on bg.raised (button text, icons, links, selection border) `#9BBFDF` / `#292F36` | 7.02 | 4.5 | pass |
@@ -190,6 +212,7 @@ Pairs are the foreground and background that Playnite actually combines. `fg opa
 | daylight | text.secondary on bg.surface (grid items, data grid) `#465463` / `#FAFBFC` | 7.48 | 5 | pass |
 | daylight | text.secondary on bg.raised (buttons, popups, menus, tooltips, top panel buttons) `#465463` / `#FFFFFF` | 7.75 | 5 | pass |
 | daylight | text.secondary on bg.hover (hovered list rows, menu items, sidebar items) `#465463` / `#E6EBF0` | 6.46 | 5 | pass |
+| daylight | text.secondary on bg.selected (search results (hovered, selected)) `#465463` / `#DCE9F4` | 6.28 | 5 | pass |
 | daylight | accent.fill on bg.canvas (button text, icons, links, selection border) `#285D85` / `#F3F5F7` | 6.42 | 4.5 | pass |
 | daylight | accent.fill on bg.surface (button text, icons, links, selection border) `#285D85` / `#FAFBFC` | 6.77 | 4.5 | pass |
 | daylight | accent.fill on bg.raised (button text, icons, links, selection border) `#285D85` / `#FFFFFF` | 7.01 | 4.5 | pass |
@@ -212,6 +235,14 @@ Pairs are the foreground and background that Playnite actually combines. `fg opa
 | slate | accent.fill on the cover overlay, worst case over a pure white cover (Play and Info icons) `#9BBFDF` / overlay | 4.62 | 3 | pass |
 | daylight | text.primary on the cover overlay, worst case over a pure black cover (cover name) `#28313B` / overlay | 7.54 | 4.5 | pass |
 | daylight | accent.fill on the cover overlay, worst case over a pure black cover (Play and Info icons) `#285D85` / overlay | 4.01 | 3 | pass |
+| slate | Play button, rest: accent.on on accent.fill (TextBrushDark on GlyphBrush, read from DerivedStyles/PlayButton.xaml) `#101820` / `#9BBFDF` | 9.30 | 4.5 | pass |
+| daylight | Play button, rest: accent.on on accent.fill (TextBrushDark on GlyphBrush, read from DerivedStyles/PlayButton.xaml) `#FAFBFC` / `#285D85` | 6.77 | 4.5 | pass |
+| slate | Play button, hover: accent.on on accent.fill (TextBrushDark on GlyphBrush, read from DerivedStyles/PlayButton.xaml) `#101820` / `#9BBFDF` | 9.30 | 4.5 | pass |
+| daylight | Play button, hover: accent.on on accent.fill (TextBrushDark on GlyphBrush, read from DerivedStyles/PlayButton.xaml) `#FAFBFC` / `#285D85` | 6.77 | 4.5 | pass |
+| slate | List item, selected: accent.on on accent.fill (TextBrushDark on GlyphBrush, read from DefaultControls/ListBox.xaml) `#101820` / `#9BBFDF` | 9.30 | 4.5 | pass |
+| daylight | List item, selected: accent.on on accent.fill (TextBrushDark on GlyphBrush, read from DefaultControls/ListBox.xaml) `#FAFBFC` / `#285D85` | 6.77 | 4.5 | pass |
+| slate | List item, keyboard focus without selection: accent.on on accent.fill (TextBrushDark on GlyphBrush, read from DefaultControls/ListBox.xaml) `#101820` / `#9BBFDF` | 9.30 | 4.5 | pass |
+| daylight | List item, keyboard focus without selection: accent.on on accent.fill (TextBrushDark on GlyphBrush, read from DefaultControls/ListBox.xaml) `#FAFBFC` / `#285D85` | 6.77 | 4.5 | pass |
 <!-- /build:contrast -->
 
 ## Not mapped

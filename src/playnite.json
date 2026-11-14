@@ -2,6 +2,11 @@
   "version": "2.0.0",
   "repo": "https://github.com/cheycron/flatcap-playnite",
   "author": "Cheycron Blaine",
+  "core": {
+    "repo": "https://github.com/cheycron/flatcap-theme",
+    "file": "src/theme.json",
+    "sha256": "cfdc0c5991f0da132722e6ff2eb82e982272c3cad375b0cb9b8fbba754e04bac"
+  },
   "playnite": {
     "tested": "10.64",
     "tested_os": "Windows",
