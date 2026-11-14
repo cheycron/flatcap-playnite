@@ -29,6 +29,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 SLATE = "themes/Desktop/Flatcap_Slate_Desktop"
 DAY = "themes/Desktop/Flatcap_Daylight_Desktop"
+FS = "themes/Fullscreen/Flatcap_Slate_Fullscreen"
+PTHM_FS = "dist/Flatcap_Slate_Fullscreen_2_0_0.pthm"
 PTHM_SLATE = "dist/Flatcap_Slate_Desktop_2_0_0.pthm"
 PTHM_DAY = "dist/Flatcap_Daylight_Desktop_2_0_0.pthm"
 UP = "upstream/playnite-10.64"
@@ -198,6 +200,22 @@ def tiny_png(path: str):
     return run
 
 
+def lower_focus_contrast(d: Path):
+    """The Fullscreen focus outline (accent.fill) takes the colour of the canvas it is drawn on."""
+    f = d / "src/theme.json"
+    j = json.loads(f.read_text(encoding="utf-8"))
+    j["themes"]["slate"]["accent.fill"] = j["themes"]["slate"]["bg.canvas"]
+    f.write_text(json.dumps(j, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
+    repin(d)
+
+
+def upstream_fs_edit(rel: str):
+    def run(d: Path):
+        f = d / UP / "Fullscreen/Default" / rel
+        f.write_bytes(f.read_bytes() + b"\n<!-- edited -->\n")
+    return run
+
+
 def repin(d: Path):
     """Pin the (mutated) core copy, so that only the mutation under test can fail."""
     pin = hashlib.sha256((d / "src/theme.json").read_bytes().replace(b"\r\n", b"\n")).hexdigest()
@@ -277,6 +295,21 @@ CASES = [
     ("zip-7", "ZIP member content differs from the build", rezip(PTHM_DAY, content=lambda b: b + b"<!-- x -->"), "--check", "member Constants.xaml"),
     ("zip-8", "package missing", delete(PTHM_DAY), "--check", "missing package"),
     ("zip-9", "duplicate ZIP member", rezip(PTHM_SLATE, dup_member=True), "--check", "duplicate ZIP member"),
+    # Fullscreen
+    ("fs-1", "Fullscreen vendored upstream file changed", upstream_fs_edit("Constants.xaml"), "--check", "upstream file changed"),
+    ("fs-2", "Fullscreen vendored upstream file deleted", delete(f"{UP}/Fullscreen/Default/Views/Main.xaml"), "--check", "upstream file missing"),
+    ("fs-3", "Fullscreen theme.yaml Mode Desktop", edit(f"{FS}/theme.yaml", sub("Mode: Fullscreen", "Mode: Desktop")), "--check", "does not match the folder"),
+    ("fs-4", "Fullscreen ThemeApiVersion newer than the application", edit(f"{FS}/theme.yaml", sub("ThemeApiVersion: 2.0.0", "ThemeApiVersion: 2.11.0")), "--check", "is not loadable"),
+    ("fs-5", "Fullscreen Constants.xaml edited by hand", edit(f"{FS}/Constants.xaml", append("\n<!-- hand edit -->\n")), "--check", "stale generated file: themes/Fullscreen/Flatcap_Slate_Fullscreen/Constants.xaml"),
+    ("fs-6", "Fullscreen theme folder missing", lambda d: shutil.rmtree(d / FS), "--check", "missing theme folder"),
+    ("fs-7", "color literal in a Fullscreen shipped file", edit(f"{FS}/Views/Main.xaml", before_close('<!-- Background="#112233" -->')), "--check", "color literal #112233"),
+    ("fs-8", "Fullscreen focus outline with the colour of the canvas", lower_focus_contrast, "--check", "contrast target missed"),
+    ("fs-9", "Fullscreen text under the minimum size", edit(f"{FS}/Views/Main.xaml", sub('Height="110"', 'FontSize="10" Height="110"')), "--check", "under the 18 px minimum"),
+    ("fs-10", "Fullscreen package edited", rezip(PTHM_FS, content=lambda b: b + b"<!-- x -->"), "--check", "member Constants.xaml"),
+    ("fs-11", "Fullscreen package missing", delete(PTHM_FS), "--check", "missing package"),
+    ("fs-12", "Fullscreen screenshot missing", delete("images/fullscreen-slate-grid.png"), "--check", "images/fullscreen-slate-grid.png: missing screenshot"),
+    ("fs-13", "Fullscreen screenshot of the wrong size", tiny_png("images/fullscreen-slate-menu.png"), "--check", "expected a PNG of 1920x1080"),
+    ("fs-14", "README does not show a Fullscreen screenshot", edit("README.md", lambda s: s.replace("images/fullscreen-slate-details.png", "images/other.png")), "--check", "README.md does not show images/fullscreen-slate-details.png"),
     # docs
     ("readme-1", "required README section missing", edit("README.md", sub("## Install\n", "## Setup\n")), "--check", "required section 'Install' is missing"),
     ("readme-2", "NOT TESTED list missing", edit("README.md", lambda s: s.replace("NOT TESTED", "untested")), "--check", "NOT TESTED list is missing"),

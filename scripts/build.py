@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build Flatcap 2.0 for Playnite (Desktop mode) from src/theme.json (the Flatcap core) and src/playnite.json (port settings).
+"""Build Flatcap 2.0 for Playnite (Desktop and Fullscreen modes) from src/theme.json (the Flatcap core) and src/playnite.json (port settings).
 
     python3 scripts/build.py --sync     write themes/Desktop/<Id>/, dist/*.pthm and the generated blocks of README.md and docs/*.md;
                                         exit 1 (after writing) if the result does not pass the checks below
@@ -44,7 +44,11 @@ import color as C  # noqa: E402
 ROOT = Path(__file__).resolve().parent.parent
 THEME = ROOT / "src" / "theme.json"
 PORT = ROOT / "src" / "playnite.json"
-MODES = ("slate", "daylight")
+MODES = ("slate", "daylight", "fs_slate")  # every theme the build produces (keys of src/playnite.json "themes")
+DESKTOP = ("slate", "daylight")
+FULLSCREEN = ("fs_slate",)
+FS_IMAGE_SIZE = (1920, 1080)
+FS_MIN_TEXT = 18  # px: the smallest text a Fullscreen (TV, couch distance) theme may draw; Default Fullscreen's smallest is 18
 ZIP_DATE = (2026, 1, 1, 0, 0, 0)  # fixed: the .pthm files must not change with the build date
 PRIVATE_FILE = ROOT / ".private-patterns"  # local, git-ignored: one regular expression per line (see .private-patterns.example)
 PRIVACY = [  # generic patterns for strings that must never be committed: personal paths, private addresses, internal names, personal emails
@@ -78,13 +82,15 @@ ALLOWED_NAMED = {"transparent"}  # paints nothing: the hit-test background of a 
 MASK_NAMED = {"black", "transparent"}  # an opacity mask only decides how opaque each pixel is (Black = opaque, Transparent = clear)
 HEX_LITERAL = re.compile(r"(?<![&\w#])#[0-9A-Fa-f]{3,8}\b")
 ATTR_VALUE = re.compile(r'[\w:.]+\s*=\s*"([^"]*)"')
-README_SECTIONS = ["Install", "Use it", "Tokens and contrast", "Fonts", "Accessibility", "Compatibility", "Third-party code and licenses",
+README_SECTIONS = ["Install", "Use it", "Fullscreen", "Tokens and contrast", "Fonts", "Accessibility", "Compatibility", "Third-party code and licenses",
                    "Contributing", "License"]
-DOC_BLOCKS = {"README.md": ["themes", "contrast"],
-              "docs/mapping.md": ["upstream", "constants", "added", "patches", "files", "contrast"],
+DOC_BLOCKS = {"README.md": ["themes", "contrast", "fs-contrast"],
+              "docs/mapping.md": ["upstream", "constants", "added", "patches", "files", "contrast",
+                                  "fs-upstream", "fs-constants", "fs-added", "fs-patches", "fs-files", "fs-contrast"],
               "docs/qa-report.md": ["pthmcheck", "static", "images"]}
-IMAGES = ["desktop-slate-grid.png", "desktop-slate-details.png", "desktop-daylight-grid.png", "desktop-daylight-details.png"]
-IMAGE_SIZE = (1440, 900)
+IMAGES = {"desktop-slate-grid.png": (1440, 900), "desktop-slate-details.png": (1440, 900), "desktop-daylight-grid.png": (1440, 900),
+          "desktop-daylight-details.png": (1440, 900), "fullscreen-slate-grid.png": FS_IMAGE_SIZE, "fullscreen-slate-details.png": FS_IMAGE_SIZE,
+          "fullscreen-slate-menu.png": FS_IMAGE_SIZE}
 REPO_RAW = "https://raw.githubusercontent.com/cheycron/flatcap-playnite/main"
 
 
@@ -127,8 +133,26 @@ def px(css: str) -> str:
 
 # --- upstream (the vendored Default theme files) -------------------------------------------------------------------
 
-def upstream_root(p: dict) -> Path:
-    return ROOT / p["upstream"]["root"]
+def kind_of(p: dict, key: str) -> str:
+    return p["themes"][key]["mode"]  # "Desktop" or "Fullscreen"
+
+
+def patches_of(kind: str) -> list:
+    return PATCHES if kind == "Desktop" else FS_PATCHES
+
+
+def cfg_of(p: dict, kind: str) -> dict:
+    """The Constants.xaml mapping of a mode."""
+    return p["constants"] if kind == "Desktop" else p["fullscreen"]["constants"]
+
+
+def palette(p: dict, key: str) -> str:
+    """The token set (a key of src/theme.json \"themes\") a theme uses."""
+    return p["themes"][key].get("palette", key)
+
+
+def upstream_root(p: dict, kind: str = "Desktop") -> Path:
+    return ROOT / (p["upstream"]["root"] if kind == "Desktop" else p["upstream"]["fullscreen_root"])
 
 
 def upstream_sums() -> dict[str, str]:
@@ -142,9 +166,9 @@ def upstream_sums() -> dict[str, str]:
     return out
 
 
-def upstream_text(p: dict, rel: str) -> str:
+def upstream_text(p: dict, rel: str, kind: str = "Desktop") -> str:
     # Playnite's files use CRLF and sometimes a BOM; the build works on LF text without BOM so patches and generated output are uniform
-    return (upstream_root(p) / rel).read_bytes().decode("utf-8-sig").replace("\r\n", "\n")
+    return (upstream_root(p, kind) / rel).read_bytes().decode("utf-8-sig").replace("\r\n", "\n")
 
 
 def upstream_errors(p: dict) -> list[str]:
@@ -163,15 +187,26 @@ def upstream_errors(p: dict) -> list[str]:
     on_disk = {x.relative_to(base).as_posix() for x in base.rglob("*") if x.is_file() and x.name != "SHA256SUMS"}
     for name in sorted(on_disk - set(sums)):
         errs.append(f"upstream file without a checksum: upstream/playnite-10.64/{name}")
-    for rel in [f for f, _ in PATCHES] + ["Constants.xaml"]:
-        if f"Desktop/Default/{rel}" not in sums:
-            errs.append(f"upstream/playnite-10.64/Desktop/Default/{rel} is patched but not listed in SHA256SUMS")
+    for kind, patches in (("Desktop", PATCHES), ("Fullscreen", FS_PATCHES)):
+        for rel in [f for f, _ in patches] + ["Constants.xaml"]:
+            if f"{kind}/Default/{rel}" not in sums:
+                errs.append(f"upstream/playnite-10.64/{kind}/Default/{rel} is patched but not listed in SHA256SUMS")
+        # every file a state contract reads must be vendored too
+        for rel in {f for _, f, *_ in (STATE_CONTRACTS if kind == "Desktop" else FS_STATES)} | {f for _, f, *_ in (() if kind == "Desktop" else FS_FOCUS)}:
+            if f"{kind}/Default/{rel}" not in sums:
+                errs.append(f"upstream/playnite-10.64/{kind}/Default/{rel} is read by a contrast state but not listed in SHA256SUMS")
     lic = ROOT / p["upstream"]["license"]
     if not lic.exists() or "Josef Nemec" not in lic.read_text(encoding="utf-8") or "MIT License" not in lic.read_text(encoding="utf-8"):
         errs.append(f"{p['upstream']['license']}: the Playnite MIT license text (Josef Nemec) is missing")
     yaml = (root / "theme.yaml").read_text(encoding="utf-8-sig") if (root / "theme.yaml").exists() else ""
     if f"ThemeApiVersion: {p['playnite']['desktop_theme_api_version']}" not in yaml:
         errs.append("upstream theme.yaml does not declare the ThemeApiVersion that src/playnite.json says")
+    fsroot = upstream_root(p, "Fullscreen")
+    fsyaml = (fsroot / "theme.yaml").read_text(encoding="utf-8-sig") if (fsroot / "theme.yaml").exists() else ""
+    if f"ThemeApiVersion: {p['playnite']['fullscreen_theme_api_version']}" not in fsyaml:
+        errs.append("upstream Fullscreen theme.yaml does not declare the ThemeApiVersion that src/playnite.json says")
+    if "Mode: Fullscreen" not in fsyaml:
+        errs.append("upstream Fullscreen theme.yaml is not a Fullscreen theme")
     return errs
 
 
@@ -220,6 +255,49 @@ def constants_xaml(theme: dict, p: dict, mode: str) -> str:
     head = (f"    <!-- Flatcap for Playnite {theme['version']} ({p['themes'][mode]['name']}). Generated by scripts/build.py from src/theme.json\n"
             "         (the Flatcap 2.0 core); do not edit by hand. Based on Constants.xaml of Playnite 10.64's Default Desktop theme\n"
             "         (MIT, Copyright (c) 2020 Josef Nemec). Keys and structure are the original ones: only values change. -->\n")
+    m = re.search(r"<ResourceDictionary\b[^>]*>\n", text)
+    if not m:
+        raise ValueError("Constants.xaml: root element not found")
+    return text[:m.end()] + head + text[m.end():]
+
+
+def constants_xaml_fs(theme: dict, p: dict, key: str) -> str:
+    """Constants.xaml of the Fullscreen theme: the vendored Default Fullscreen file with its colors and gradients taken from the tokens.
+    Fonts and sizes are NOT mapped: Fullscreen is a couch-distance interface and keeps Playnite's own sizes (18 px and up) and font."""
+    pal = palette(p, key)
+    t = lambda tok: tk(theme, pal, tok)  # noqa: E731
+    cs = cfg_of(p, "Fullscreen")
+    text = upstream_text(p, "Constants.xaml", "Fullscreen")
+    for k, spec in cs["colors"].items():
+        text = sub_once(text, rf'<Color x:Key="{k}">#[0-9A-Fa-f]{{6,8}}</Color>',
+                        f'<Color x:Key="{k}">{argb(t(spec["token"]), spec.get("alpha", 255))}</Color> <!-- {spec["token"]} -->', f"<Color> {k}")
+    for k, spec in cs["brushes"].items():
+        text = sub_once(text, rf'<SolidColorBrush x:Key="{k}" Color="[^"]*" />',
+                        f'<SolidColorBrush x:Key="{k}" Color="{argb(t(spec["token"]), spec.get("alpha", 255))}" /> <!-- {spec["token"]} -->', f"<SolidColorBrush> {k}")
+    for k, spec in cs["solids"].items():
+        a = spec.get("alpha", 255)
+        text = sub_once(text, rf'<(Radial|Linear)GradientBrush x:Key="{k}".*?</\1GradientBrush>',
+                        f'<SolidColorBrush x:Key="{k}" Color="{argb(t(spec["token"]), a)}" /> <!-- {spec["token"]}{" at alpha " + str(a) if a != 255 else ""} -->',
+                        f"gradient {k}", re.S)
+    for k, spec in cs["gradients"].items():
+        m = re.search(rf'<LinearGradientBrush x:Key="{k}"[^>]*>', text)
+        if not m:
+            raise ValueError(f"Constants.xaml: expected exactly one gradient {k}, found 0")
+        block = re.search(rf'<LinearGradientBrush x:Key="{k}"[^>]*>.*?</LinearGradientBrush>', text, re.S).group(0)
+        offs = re.findall(r'<GradientStop Color="#[0-9A-Fa-f]{6,8}" Offset="([\d.]+)"', block)
+        if len(offs) != 2:
+            raise ValueError(f"Constants.xaml: gradient {k} is expected to have two stops, found {len(offs)}")
+        text = sub_once(text, rf'<LinearGradientBrush x:Key="{k}"[^>]*>.*?</LinearGradientBrush>',
+                        f'{m.group(0)}\n        <GradientStop Color="{argb(t(spec["token"]), spec["from_alpha"])}" Offset="{offs[0]}"/> <!-- {spec["token"]} -->\n'
+                        f'        <GradientStop Color="{argb(t(spec["token"]), spec["to_alpha"])}" Offset="{offs[1]}"/>\n    </LinearGradientBrush>', f"gradient {k}", re.S)
+    add = ["", "    <!-- Flatcap additions: brushes for the places where the Default theme hardcodes a color. See docs/mapping.md. -->"]
+    for k, spec in cs["added"].items():
+        add.append(f'    <SolidColorBrush x:Key="{k}" Color="{argb(t(spec["token"]), spec.get("alpha", 255))}" /> <!-- {spec["token"]} -->')
+    text = text.replace("</ResourceDictionary>", "\n".join(add) + "\n</ResourceDictionary>")
+    head = (f"    <!-- Flatcap for Playnite {theme['version']} ({p['themes'][key]['name']}, Fullscreen). Generated by scripts/build.py from src/theme.json\n"
+            "         (the Flatcap 2.0 core); do not edit by hand. Based on Constants.xaml of Playnite 10.64's Default Fullscreen theme\n"
+            "         (MIT, Copyright (c) 2020 Josef Nemec). Keys and structure are the original ones: only colors change. Sizes and fonts are\n"
+            "         Playnite's own (a TV interface needs text of 18 px and up). -->\n")
     m = re.search(r"<ResourceDictionary\b[^>]*>\n", text)
     if not m:
         raise ValueError("Constants.xaml: root element not found")
@@ -290,9 +368,51 @@ PATCHES: list[tuple[str, list[tuple[str, str, int, str]]]] = [
 ]
 
 
-def patched(p: dict, rel: str) -> str:
-    text = upstream_text(p, rel)
-    for pat, repl, count, _why in dict(PATCHES)[rel]:
+# Fullscreen (Default Fullscreen 10.64). The same rules. A Fullscreen theme is navigated with a controller or the keyboard, so the patches are about two
+# things: no hardcoded color (every one becomes a Constants.xaml brush) and focus that stays visible and legible (ComboBox text was Black on a dark fill).
+FS_PATCHES: list[tuple[str, list[tuple[str, str, int, str]]]] = [
+    ("Views/Main.xaml", [
+        (lit('<Setter Property="Foreground" Value="Red" />'), '<Setter Property="Foreground" Value="{DynamicResource FlatcapDangerBrush}" />', 1,
+         "critical battery icon was a fixed red"),
+        (lit('Foreground="White" FontSize="30" />'), 'Foreground="{DynamicResource TextBrush}" FontSize="30" />', 1, "notifications icon was fixed white"),
+        (lit('<TextBlock  Foreground="White"'), '<TextBlock  Foreground="{DynamicResource TextBrush}"', 1, "name of the active filter was fixed white")]),
+    ("Views/GameDetails.xaml", [
+        (lit('<DropShadowEffect Color="White" BlurRadius="20"'), '<DropShadowEffect Color="{DynamicResource TextColor}" BlurRadius="20"', 1, "glow around the cover was fixed white"),
+        (lit('Foreground="White" FontFamily="{DynamicResource FontTitilliumWebBold}"'),
+         'Foreground="{DynamicResource TextBrush}" FontFamily="{DynamicResource FontTitilliumWebBold}"', 1, "game title was fixed white"),
+        (lit('<DropShadowEffect ShadowDepth="2" Color="Black"'), '<DropShadowEffect ShadowDepth="2" Color="{DynamicResource BlackColor}"', 1,
+         "shadow under the game title: same black, now through the kept BlackColor resource"),
+        (lit('HtmlFontSize="16"'), 'HtmlFontSize="20"', 1, "the description was the only text under 18 px; at couch distance it is raised to 20")]),
+    ("Views/ItemSelection.xaml", [
+        (lit('<Setter Property="Background" Value="#AA000000" />'), '<Setter Property="Background" Value="{DynamicResource FlatcapScrimBrush}" />', 2, "dimmed layer behind a selection menu")]),
+    ("Views/GameMenu.xaml", [
+        (lit('<Setter Property="Background" Value="#AA000000" />'), '<Setter Property="Background" Value="{DynamicResource FlatcapScrimBrush}" />', 1, "dimmed layer behind the game menu")]),
+    ("DerivedStyles/ListGameItemTemplate.xaml", [
+        (lit('<Border Background="#AA000000" x:Name="BorderDarken"'), '<Border Background="{DynamicResource FlatcapScrimBrush}" x:Name="BorderDarken"', 1,
+         "darkening of the cover of an uninstalled game")]),
+    ("Views/SettingsMenus.xaml", [
+        (lit('BorderThickness="2" BorderBrush="{DynamicResource ControlBackgroundBrush}"'), 'BorderThickness="2" BorderBrush="{DynamicResource SelectionLightBrush}"', 1,
+         "the check box outline had the contrast of the fill behind it (1.2:1); it takes the control border color (3:1)"),
+        (lit('FontFamily="Marlett" Foreground="White"'), 'FontFamily="Marlett" Foreground="{DynamicResource TextBrush}"', 1, "check mark was fixed white")]),
+    ("DefaultControls/CheckBox.xaml", [
+        (lit('BorderThickness="2" BorderBrush="{DynamicResource ControlBackgroundBrush}"'), 'BorderThickness="2" BorderBrush="{DynamicResource SelectionLightBrush}"', 1,
+         "the check box outline had the contrast of the fill behind it (1.2:1); it takes the control border color (3:1)"),
+        (lit('FontFamily="Marlett" Foreground="White"'), 'FontFamily="Marlett" Foreground="{DynamicResource TextBrush}"', 1, "check mark was fixed white")]),
+    ("DefaultControls/ComboBox.xaml", [
+        (lit('<Setter Property="Foreground" Value="Black" />'), '<Setter Property="Foreground" Value="{DynamicResource TextBrush}" />', 4,
+         "focused or hovered combo box and combo box item drew Black text on a dark fill (about 1.1:1 in the Default theme); the text keeps the main text color")]),
+    ("DefaultControls/ScrollViewer.xaml", [
+        (r'(<Style TargetType="\{x:Type Thumb\}">\s*<Setter Property="Background" Value=")\{DynamicResource ControlBackgroundBrush\}(" />)',
+         r'\1{DynamicResource SelectionLightBrush}\2', 1, "the scroll bar thumb had the contrast of its own track (1.2:1); it takes the control border color (3:1)")]),
+    ("DefaultControls/Slider.xaml", [
+        (lit('<Border Height="6" Background="{DynamicResource ControlBackgroundBrush}" />'), '<Border Height="6" Background="{DynamicResource SelectionLightBrush}" />', 1,
+         "the unfilled track of a slider had the contrast of the fill behind it (1.2:1); it takes the control border color (3:1)")]),
+]
+
+
+def patched(p: dict, rel: str, kind: str = "Desktop") -> str:
+    text = upstream_text(p, rel, kind)
+    for pat, repl, count, _why in dict(patches_of(kind))[rel]:
         text, n = re.subn(pat, repl, text)
         if n != count:
             raise ValueError(f"{rel}: patch {pat[:60]!r} matched {n} times, expected {count}")
@@ -301,8 +421,9 @@ def patched(p: dict, rel: str) -> str:
 
 def theme_yaml(theme: dict, p: dict, mode: str) -> str:
     t = p["themes"][mode]
+    api = p["playnite"]["desktop_theme_api_version" if t["mode"] == "Desktop" else "fullscreen_theme_api_version"]
     return (f"Id: {t['id']}\nName: {t['name']}\nAuthor: {p['author']}\nVersion: {theme['version']}\nMode: {t['mode']}\n"
-            f"ThemeApiVersion: {p['playnite']['desktop_theme_api_version']}\n")  # no Links: the Default theme has none
+            f"ThemeApiVersion: {api}\n")  # no Links: the Default theme has none
 
 
 def license_txt(theme: dict, p: dict) -> str:
@@ -317,9 +438,10 @@ def license_txt(theme: dict, p: dict) -> str:
 
 def theme_files(theme: dict, p: dict, mode: str) -> dict[str, bytes]:
     """Relative path (posix) -> bytes, for the theme folder. theme.yaml is first in the .pthm; the order here is the sorted one."""
-    files = {"Constants.xaml": constants_xaml(theme, p, mode), "LICENSE.txt": license_txt(theme, p)}
-    for rel, _ in PATCHES:
-        files[rel] = patched(p, rel)
+    kind = kind_of(p, mode)
+    files = {"Constants.xaml": constants_xaml(theme, p, mode) if kind == "Desktop" else constants_xaml_fs(theme, p, mode), "LICENSE.txt": license_txt(theme, p)}
+    for rel, _ in patches_of(kind):
+        files[rel] = patched(p, rel, kind)
     files["theme.yaml"] = theme_yaml(theme, p, mode)
     return {k: v.encode("utf-8") for k, v in sorted(files.items())}
 
@@ -464,9 +586,10 @@ def yaml_errors(theme: dict, p: dict) -> list[str]:
         if not re.fullmatch(r"\d+\.\d+\.\d+", tv):
             errs.append(f"{rel}: ThemeApiVersion {tv!r} is not a version")
         else:
-            tmaj, app = int(tv.split(".")[0]), p["playnite"]["desktop_app_theme_api_version"]
+            k = kind_of(p, mode)
+            tmaj, app = int(tv.split(".")[0]), p["playnite"]["desktop_app_theme_api_version" if k == "Desktop" else "fullscreen_app_theme_api_version"]
             if tmaj != int(app.split(".")[0]) or tuple(map(int, tv.split("."))) > tuple(map(int, app.split("."))):
-                errs.append(f"{rel}: ThemeApiVersion {tv} is not loadable by a Playnite whose Desktop theme API is {app} (same major, not newer)")
+                errs.append(f"{rel}: ThemeApiVersion {tv} is not loadable by a Playnite whose {k} theme API is {app} (same major, not newer)")
         if y.get("Name") != p["themes"][mode]["name"]:
             errs.append(f"{rel}: Name {y.get('Name')!r} differs from src/playnite.json")
     return errs
@@ -474,11 +597,16 @@ def yaml_errors(theme: dict, p: dict) -> list[str]:
 
 def xml_errors(theme: dict, p: dict) -> list[str]:
     errs = []
-    defined_by_upstream = set()
-    for f in upstream_root(p).rglob("*.xaml"):
-        defined_by_upstream |= set(re.findall(r'x:Key="([^"]+)"', f.read_text(encoding="utf-8")))
+    defined_by_upstream_kind = {}
+    for kd in ("Desktop", "Fullscreen"):
+        defined_by_upstream_kind[kd] = set()
+        for f in upstream_root(p, kd).rglob("*.xaml"):
+            defined_by_upstream_kind[kd] |= set(re.findall(r'x:Key="([^"]+)"', f.read_text(encoding="utf-8-sig")))
     for mode in MODES:
         d = theme_dir(p, mode)
+        kind = kind_of(p, mode)
+        cs = cfg_of(p, kind)
+        defined_by_upstream = defined_by_upstream_kind[kind]
         if not d.exists():
             continue
         const_keys = set()
@@ -508,24 +636,43 @@ def xml_errors(theme: dict, p: dict) -> list[str]:
             # Resources that Playnite's own Default files define (styles, fonts) or the app supplies (LOC*) are not vendored here: a patch may
             # only use ones the original file already used, so it cannot introduce an unresolved name
             orig_rel = f.relative_to(d).as_posix()
-            orig = upstream_text(p, orig_rel) if (upstream_root(p) / orig_rel).exists() else ""  # an extra file is reported by folder_errors
+            orig = upstream_text(p, orig_rel, kind) if (upstream_root(p, kind) / orig_rel).exists() else ""  # an extra file is reported by folder_errors
             for k in sorted(set(re.findall(r"\{DynamicResource (\w+)\}", text)) - const_keys - defined_by_upstream - set(re.findall(r"\{DynamicResource (\w+)\}", orig))):
                 errs.append(f"{rel}: resource {k} is not defined in Constants.xaml and the original file does not use it")
         cf = d / "Constants.xaml"
         if cf.exists():
             ctext = cf.read_text(encoding="utf-8")
-            mapped = set(p["constants"]["colors"]) | set(p["constants"]["brushes"]) | set(p["constants"]["keep_literal"])
+            mapped = set(cs["colors"]) | set(cs["brushes"]) | set(cs["keep_literal"])
             for m in re.finditer(r'x:Key="(\w+)"[^>]*?(?:Color="(#[0-9A-Fa-f]{6,8})"|>(#[0-9A-Fa-f]{6,8})<)', ctext):
                 key = m.group(1)
-                if key not in mapped and key not in p["constants"]["added"] and key not in p["constants"]["gradients_replaced"]:
+                if key not in mapped and key not in cs["added"] and key not in cs["gradients_replaced"]:
                     errs.append(f"{cf.relative_to(ROOT)}: {key} holds a color literal that no Flatcap token maps")
             for m in re.finditer(r'<GradientStop Color="(#[0-9A-Fa-f]{6,8})"', ctext):
                 pass
-            up = upstream_text(p, "Constants.xaml")
+            up = upstream_text(p, "Constants.xaml", kind)
             up_keys = re.findall(r'x:Key="(\w+)"', up)
             for k in up_keys:
                 if f'x:Key="{k}"' not in ctext:
                     errs.append(f"{cf.relative_to(ROOT)}: upstream key {k} was dropped")
+            if kind == "Fullscreen":
+                errs += fs_size_errors(d, ctext)
+        if kind == "Fullscreen":
+            for f in sorted(d.rglob("*.xaml")):
+                if f.parent != d or f.name != "Constants.xaml":
+                    errs += fs_size_errors(d, f.read_text(encoding="utf-8"), f)
+    return errs
+
+
+def fs_size_errors(d: Path, text: str, f: Path | None = None) -> list[str]:
+    """Fullscreen is read from a couch: no text under FS_MIN_TEXT px. Looks at FontSize and HtmlFontSize literals and at the FontSize constants."""
+    rel = (f or (d / "Constants.xaml")).relative_to(ROOT)
+    errs = []
+    for m in re.finditer(r'\b(?:Html)?FontSize="(\d+(?:\.\d+)?)"', text):
+        if float(m.group(1)) < FS_MIN_TEXT:
+            errs.append(f"{rel}: text size {m.group(1)} px is under the {FS_MIN_TEXT} px minimum of a Fullscreen theme")
+    for m in re.finditer(r'<sys:Double x:Key="(FontSize\w*)">(\d+(?:\.\d+)?)</sys:Double>', text):
+        if float(m.group(2)) < FS_MIN_TEXT:
+            errs.append(f"{rel}: {m.group(1)} is {m.group(2)} px, under the {FS_MIN_TEXT} px minimum of a Fullscreen theme")
     return errs
 
 
@@ -593,9 +740,12 @@ def core_errors(p: dict) -> list[str]:
 def token_errors(theme: dict, p: dict) -> list[str]:
     errs = core_errors(p)
     cs = p["constants"]
+    fcs = cfg_of(p, "Fullscreen")
     for m in MODES:
-        t = theme["themes"][m]
+        t = theme["themes"][palette(p, m)]
         need = {s["token"] for grp in ("colors", "brushes", "added") for s in cs[grp].values()} | {x for a, b, c, d in [pr[:4] for pr in pairs_raw()] for x in (b, c)}
+        if kind_of(p, m) == "Fullscreen":
+            need = {s["token"] for grp in ("colors", "brushes", "solids", "gradients", "added") for s in fcs[grp].values()}
         for tok in sorted(need):
             if tok not in t:
                 errs.append(f"{m}: token {tok} is used by the mapping but not defined in src/theme.json")
@@ -613,7 +763,7 @@ def token_errors(theme: dict, p: dict) -> list[str]:
         errs.append(f"src/playnite.json version {p.get('version')} differs from the core {theme.get('version')}")
     ids = [p["themes"][m]["id"] for m in MODES]
     if len(set(ids)) != len(ids):
-        errs.append("the two themes share an id")
+        errs.append("two themes share an id")
     return errs
 
 
@@ -649,7 +799,7 @@ def scrim_rows(theme: dict, p: dict) -> list[dict]:
     """Text and icons on the cover overlay, worst case: the overlay over a pure white and over a pure black cover."""
     rows = []
     alpha = p["constants"]["added"]["FlatcapScrimBrush"]["alpha"] / 255
-    for m in MODES:
+    for m in DESKTOP:
         t = theme["themes"][m]
         scrim = C.parse(t["bg.canvas"])
         for fg_tok, target, what in (("text.primary", 4.5, "cover name"), ("accent.fill", 3.0, "Play and Info icons")):
@@ -717,7 +867,7 @@ def state_rows(theme: dict, p: dict) -> tuple[list[dict], list[str]]:
         except KeyError as e:
             errs.append(f"state '{label}' ({rel}): {e}")
             continue
-        for m in MODES:
+        for m in DESKTOP:
             a, b = tk(theme, m, ft), tk(theme, m, bt)
             out.append({"mode": m, "label": f"{label}: {ft} on {bt} ({fg.group(1)} on {bg.group(1)}, read from {rel})", "fg": a, "bg": b,
                         "target": target, "group": "text", "ratio": ratio(a, b)})
@@ -725,8 +875,9 @@ def state_rows(theme: dict, p: dict) -> tuple[list[dict], list[str]]:
 
 
 def rows(theme: dict, p: dict) -> list[dict]:
+    """The Desktop rows (every Desktop theme). The Fullscreen rows are fs_rows()."""
     out = []
-    for m in MODES:
+    for m in DESKTOP:
         for label, fg, bg, target, group, op in pairs_raw():
             a, b = tk(theme, m, fg), tk(theme, m, bg)
             out.append({"mode": m, "label": label, "fg": a, "bg": b, "target": target, "group": group, "ratio": ratio(a, b, op)})
@@ -734,8 +885,196 @@ def rows(theme: dict, p: dict) -> list[dict]:
 
 
 def contrast_errors(theme: dict, p: dict) -> list[str]:
-    return ([f"{r['mode']}: {r['label']} = {r['ratio']:.2f} < {r['target']} (contrast target missed)" for r in rows(theme, p) if r["ratio"] < r["target"]]
-            + state_rows(theme, p)[1])
+    frows, ferrs = fs_rows_and_errors(theme, p)
+    return ([f"{r['mode']}: {r['label']} = {r['ratio']:.2f} < {r['target']} (contrast target missed)" for r in rows(theme, p) + frows if r["ratio"] < r["target"]]
+            + state_rows(theme, p)[1] + ferrs)
+
+
+# --- Fullscreen contrast ------------------------------------------------------------------------------------------------
+# Fullscreen is driven by a controller or the keyboard and read from a couch, so besides the text pairs it checks what the focus looks like.
+# Every pair is expressed with Playnite RESOURCES (TextBrush, ControlBackgroundDarkBrush...) and resolved to tokens through the mapping in
+# src/playnite.json, so a mapping that gives a surface the wrong token fails here. A surface that is translucent (the top and bottom bars,
+# the game details panel) lies over the game's background art: it is checked over a pure white and a pure black picture, the worst cases.
+FS_SURFACES = [("MainBackgourndBrush", "main background"), ("OverlayMenuBackgroundBrush", "menus and dialogs"),
+               ("ControlBackgroundBrush", "text boxes and filter fields"), ("ControlBackgroundDarkBrush", "focused or hovered controls, game titles on covers, tooltips"),
+               ("TopBarBackgroundBrush", "top and bottom bars, over the background art"), ("GameDetailsBackgroundBrush", "game details panel, over the art")]
+# (foreground resource, what it draws, [(surface resource, target, group)], category)
+FS_PAIRS = [
+    ("TextBrush", "labels, titles, description text",
+     [("MainBackgourndBrush", 7.0, "text"), ("OverlayMenuBackgroundBrush", 7.0, "text"), ("ControlBackgroundBrush", 7.0, "text"),
+      ("ControlBackgroundDarkBrush", 7.0, "text"), ("TopBarBackgroundBrush", 4.5, "text"), ("GameDetailsBackgroundBrush", 4.5, "text")], "Main text"),
+    ("GlyphBrush", "accent: description links, icons, hover text",
+     [("MainBackgourndBrush", 4.5, "text"), ("OverlayMenuBackgroundBrush", 4.5, "text"), ("ControlBackgroundBrush", 4.5, "text"),
+      ("ControlBackgroundDarkBrush", 4.5, "text"), ("TopBarBackgroundBrush", 3.0, "outline"), ("GameDetailsBackgroundBrush", 4.5, "text")], "Accent"),
+    ("GlyphLightBrush", "light accent: icons, hover text in lists",
+     [("MainBackgourndBrush", 4.5, "text"), ("OverlayMenuBackgroundBrush", 4.5, "text"), ("ControlBackgroundBrush", 4.5, "text"),
+      ("ControlBackgroundDarkBrush", 4.5, "text"), ("TopBarBackgroundBrush", 3.0, "outline"), ("GameDetailsBackgroundBrush", 3.0, "outline")], "Light accent"),
+    ("SelectionLightBrush", "outlines of fields and check boxes, scroll thumb, slider track",
+     [("MainBackgourndBrush", 3.0, "outline"), ("OverlayMenuBackgroundBrush", 3.0, "outline"), ("ControlBackgroundBrush", 3.0, "outline"),
+      ("ControlBackgroundDarkBrush", 3.0, "outline")], "Control borders"),
+    ("WarningBrush", "warning text",
+     [("MainBackgourndBrush", 4.5, "text"), ("OverlayMenuBackgroundBrush", 4.5, "text"), ("ControlBackgroundBrush", 4.5, "text"),
+      ("ControlBackgroundDarkBrush", 4.5, "text")], "Status"),
+    ("FlatcapDangerBrush", "critical battery icon", [("TopBarBackgroundBrush", 3.0, "outline")], "Status"),
+    ("TextBrushDark", "disabled controls (WCAG exempts inactive components; Playnite also draws them at 50% opacity); report only",
+     [("MainBackgourndBrush", 1.0, "report"), ("OverlayMenuBackgroundBrush", 1.0, "report")], "Disabled"),
+]
+_BR = r'\{DynamicResource (\w+)\}'
+FS_BTN_FG = r'<Style TargetType="Button">.*?<Setter Property="Foreground" Value="' + _BR + '"'
+
+
+def _trig(prop: str, setter: str = "Background") -> str:
+    return rf'<Trigger Property="{prop}" Value="True">\s*<Setter Property="{setter}" Value="{_BR}"'
+
+
+# States whose text and fill are chosen by the XAML. (label, file, foreground regex, fill regex, target, regex flags, category)
+# Read from the shipped (patched) file; the first group of each regex is a resource name. A foreground that is not a resource (a literal such
+# as Foreground="Black") does not match and is reported: that is the defect these contracts exist for.
+FS_STATES = [
+    ("Button, keyboard focus", "DefaultControls/Button.xaml", FS_BTN_FG, _trig("IsFocused"), 4.5, re.S, "States"),
+    ("Button, hover", "DefaultControls/Button.xaml", FS_BTN_FG, _trig("IsMouseOver"), 4.5, re.S, "States"),
+    ("Toggle button, keyboard focus", "DefaultControls/ToggleButton.xaml", FS_BTN_FG.replace('"Button"', '"ToggleButton"'), _trig("IsFocused"), 4.5, re.S, "States"),
+    ("Toggle button, checked and focused", "DefaultControls/ToggleButton.xaml", _trig("IsChecked", "Foreground"), _trig("IsFocused"), 4.5, re.S, "States"),
+    ("Combo box, keyboard focus", "DefaultControls/ComboBox.xaml",
+     r'<Trigger Property="IsFocused" Value="True">\s*<Setter Property="Background" Value="' + _BR + r'" />\s*<Setter Property="Foreground" Value="' + _BR + '"', _trig("IsFocused"), 4.5, re.S, "States"),
+    ("Combo box, hover", "DefaultControls/ComboBox.xaml",
+     r'<Trigger Property="IsMouseOver" Value="True">\s*<Setter Property="Background" Value="' + _BR + r'" />\s*<Setter Property="Foreground" Value="' + _BR + '"', _trig("IsMouseOver"), 4.5, re.S, "States"),
+    ("Combo box item, keyboard focus", "DefaultControls/ComboBox.xaml",
+     r'<ControlTemplate TargetType="\{x:Type ComboBoxItem\}">.*?<Trigger Property="IsFocused" Value="True">\s*<Setter Property="Background" Value="' + _BR + r'" />\s*<Setter Property="Foreground" Value="' + _BR + '"',
+     r'<ControlTemplate TargetType="\{x:Type ComboBoxItem\}">.*?' + _trig("IsFocused"), 4.5, re.S, "States"),
+    ("Combo box item, hover", "DefaultControls/ComboBox.xaml",
+     r'<ControlTemplate TargetType="\{x:Type ComboBoxItem\}">.*?<Trigger Property="IsMouseOver" Value="True">\s*<Setter Property="Background" Value="' + _BR + r'" />\s*<Setter Property="Foreground" Value="' + _BR + '"',
+     r'<ControlTemplate TargetType="\{x:Type ComboBoxItem\}">.*?' + _trig("IsMouseOver"), 4.5, re.S, "States"),
+    ("Text box, rest", "DefaultControls/TextBox.xaml", r'<Setter Property="Foreground" Value="' + _BR + '"', r'<Setter Property="Background" Value="' + _BR + '"', 4.5, 0, "States"),
+    ("Text box, keyboard focus", "DefaultControls/TextBox.xaml", r'<Setter Property="Foreground" Value="' + _BR + '"', _trig("IsFocused"), 4.5, 0, "States"),
+    ("Check box, keyboard focus", "DefaultControls/CheckBox.xaml", r'<Setter Property="Foreground" Value="' + _BR + '"', _trig("IsFocused"), 4.5, 0, "States"),
+    ("Check mark in a check box (graphic)", "DefaultControls/CheckBox.xaml", r'FontFamily="Marlett" Foreground="' + _BR + '"', r'<Border Background="' + _BR + '"', 3.0, 0, "States"),
+    ("Check mark in the settings list (graphic)", "Views/SettingsMenus.xaml", r'FontFamily="Marlett" Foreground="' + _BR + '"', r'<Border Background="' + _BR + '"', 3.0, 0, "States"),
+    ("Filter item, keyboard focus", "Views/FiltersView.xaml", r'<Setter Property="Foreground" Value="' + _BR + '"', _trig("IsFocused"), 4.5, 0, "States"),
+    ("Tool tip", "DefaultControls/ToolTip.xaml", r'<Setter Property="Foreground" Value="' + _BR + '"', r'<Setter Property="Background" Value="' + _BR + '"', 4.5, 0, "States"),
+    ("Game title on a cover", "DerivedStyles/ListGameItemTemplate.xaml", r'(TextBlockBaseStyle)', r'Background="' + _BR + r'"/>', 4.5, 0, "States"),
+]
+# What marks the focus. (label, file, regex of the resource the focus outline is drawn with, regex that proves the focused state shows it)
+# Every one is a 3 to 5 px outline (a shape change, not a color change alone) and must hold 3:1 against every surface it can sit on.
+_VIS = r'<Trigger Property="IsFocused" Value="True">(?:(?!</Trigger>).)*?<Setter Property="Visibility" Value="Visible" TargetName="{n}"'
+_BF = r'x:Name="BorderFocus"[^>]*?BorderBrush="' + _BR + '"'
+FS_FOCUS = [
+    ("Button", "DefaultControls/Button.xaml", _BF, _VIS.format(n="BorderFocus")),
+    ("Toggle button", "DefaultControls/ToggleButton.xaml", _BF, _VIS.format(n="BorderFocus")),
+    ("Check box", "DefaultControls/CheckBox.xaml", _BF, _VIS.format(n="BorderFocus")),
+    ("Combo box", "DefaultControls/ComboBox.xaml", _BF, _VIS.format(n="BorderFocus")),
+    ("Text box", "DefaultControls/TextBox.xaml", _BF, _VIS.format(n="BorderFocus")),
+    ("Slider", "DefaultControls/Slider.xaml", _BF, _VIS.format(n="BorderFocus")),
+    ("Filter item", "Views/FiltersView.xaml", _BF, _VIS.format(n="BorderFocus")),
+    ("Settings list item", "Views/SettingsMenus.xaml", _BF, _VIS.format(n="BorderFocus")),
+    ("Top bar button", "DerivedStyles/ButtonTopMenu.xaml", r'<Trigger Property="IsFocused" Value="True">\s*<Setter Property="BorderBrush" Value="' + _BR + r'" TargetName="MainBorder"',
+     r'<Border Background="\{TemplateBinding Background\}"\s*BorderBrush="Transparent" BorderThickness="3"\s*x:Name="MainBorder"'),
+    ("Game cover", "DerivedStyles/ListGameItemStyle.xaml", r'x:Name="MainBorder" BorderThickness="5" BorderBrush="' + _BR + '"', _VIS.format(n="MainBorder")),
+]
+
+
+def fs_brush_colors(p: dict, key: str) -> list[tuple[str, int]]:
+    """[(token, alpha)] behind a Fullscreen brush resource, through the mapping in src/playnite.json (a gradient gives one entry per stop)."""
+    cs = cfg_of(p, "Fullscreen")
+    for grp in ("brushes", "added", "solids"):
+        if key in cs[grp]:
+            return [(cs[grp][key]["token"], cs[grp][key].get("alpha", 255))]
+    if key in cs["gradients"]:
+        return [(cs["gradients"][key]["token"], cs["gradients"][key]["to_alpha"])]  # the opaque end of the gradient, where the text is
+    up = upstream_text(p, "Constants.xaml", "Fullscreen")
+    m = re.search(rf'<SolidColorBrush x:Key="{key}" Color="\{{DynamicResource (\w+)\}}"', up)
+    names = [m.group(1)] if m else []
+    if not names:
+        g = re.search(rf'<(?:Linear|Radial)GradientBrush x:Key="{key}".*?</(?:Linear|Radial)GradientBrush>', up, re.S)
+        names = re.findall(r'Color="\{DynamicResource (\w+)\}"', g.group(0)) if g else []
+    if not names:
+        raise KeyError(f"resource {key} is not a Fullscreen brush src/playnite.json maps")
+    out = []
+    for n in names:
+        if n not in cs["colors"]:
+            raise KeyError(f"resource {key} uses color {n}, which has no token in src/playnite.json")
+        out.append((cs["colors"][n]["token"], cs["colors"][n].get("alpha", 255)))
+    return out
+
+
+def fs_flat(theme: dict, p: dict, key: str) -> list:
+    """The opaque colors (RGBA) a Fullscreen surface can show: one when it is opaque, two (over white and over black art) when it is not."""
+    pal = tk_palette(theme, p)
+    tok, alpha = fs_brush_colors(p, key)[0]
+    c = C.parse(pal[tok])
+    if alpha >= 255:
+        return [c]
+    return [C.over((*c[:3], alpha / 255), (1.0, 1.0, 1.0, 1.0)), C.over((*c[:3], alpha / 255), (0.0, 0.0, 0.0, 1.0))]
+
+
+def tk_palette(theme: dict, p: dict) -> dict:
+    return theme["themes"][palette(p, FULLSCREEN[0])]
+
+
+def fs_rows_and_errors(theme: dict, p: dict) -> tuple[list[dict], list[str]]:
+    out, errs = [], []
+    pal = tk_palette(theme, p)
+    where = dict(FS_SURFACES)
+    try:
+        flats = {k: fs_flat(theme, p, k) for k, _ in FS_SURFACES}
+    except KeyError as e:
+        return [], [f"Fullscreen surface: {e}"]
+    def worst(fg: str, bgs: list) -> tuple[float, str]:
+        return min((C.contrast(C.parse(fg), b), C.fmt(b)) for b in bgs)
+    for fg_key, what, specs, cat in FS_PAIRS:
+        try:
+            fgs = [pal[tok] for tok, _a in fs_brush_colors(p, fg_key)]
+        except KeyError as e:
+            errs.append(f"Fullscreen pair {fg_key}: {e}")
+            continue
+        for surf, target, group in specs:
+            r, bgc = min(worst(f, flats[surf]) for f in fgs)
+            out.append({"mode": "fullscreen", "label": f"{fg_key} ({what}) on {surf} ({where[surf]})", "fg": fgs[0], "bg": bgc, "target": target, "group": group,
+                        "ratio": r, "cat": cat})
+    for label, rel, fg_re, bg_re, target, flags, cat in FS_STATES:
+        text = patched(p, rel, "Fullscreen") if rel in dict(FS_PATCHES) else upstream_text(p, rel, "Fullscreen")
+        fg, bg = re.search(fg_re, text, flags), re.search(bg_re, text, flags)
+        if not fg or not bg:
+            errs.append(f"state '{label}' ({rel}): no {'foreground' if not fg else 'fill'} resource found; the state keeps a text color that is not a theme resource "
+                        f"(contrast not guaranteed)")
+            continue
+        fgkey = fg.group(fg.lastindex)  # the foreground is the last group of its regex (the combo box ones capture the fill first)
+        bgkey = bg.group(bg.lastindex)
+        try:
+            if fgkey == "TextBlockBaseStyle":
+                fgkey = "TextBrush"  # the label is drawn with the base text style, which sets TextBrush (checked in Constants.xaml below)
+                if not re.search(r'<Style x:Key="TextBlockBaseStyle".*?Property="Foreground" Value="\{DynamicResource TextBrush\}"', upstream_text(p, "Constants.xaml", "Fullscreen"), re.S):
+                    errs.append(f"state '{label}': TextBlockBaseStyle no longer sets TextBrush")
+            fgs = [pal[tok] for tok, _a in fs_brush_colors(p, fgkey)]
+            bgs = fs_flat(theme, p, bgkey)
+        except KeyError as e:
+            errs.append(f"state '{label}' ({rel}): {e}")
+            continue
+        r, bgc = min(worst(f, bgs) for f in fgs)
+        out.append({"mode": "fullscreen", "label": f"{label}: {fgkey} on {bgkey} (read from {rel})", "fg": fgs[0], "bg": bgc, "target": target, "group": "text" if target == 4.5 else "outline",
+                    "ratio": r, "cat": cat})
+    for label, rel, brush_re, show_re in FS_FOCUS:
+        text = patched(p, rel, "Fullscreen") if rel in dict(FS_PATCHES) else upstream_text(p, rel, "Fullscreen")
+        b, s = re.search(brush_re, text, re.S), re.search(show_re, text, re.S)
+        if not b:
+            errs.append(f"focus '{label}' ({rel}): no focus outline resource found")
+            continue
+        if not s:
+            errs.append(f"focus '{label}' ({rel}): the focused state does not show its outline")
+            continue
+        try:
+            fgs = [pal[tok] for tok, _a in fs_brush_colors(p, b.group(1))]
+        except KeyError as e:
+            errs.append(f"focus '{label}' ({rel}): {e}")
+            continue
+        r, bgc = min(worst(f, flats[k]) for f in fgs for k, _ in FS_SURFACES)
+        out.append({"mode": "fullscreen", "label": f"Focus outline of the {label.lower()} ({b.group(1)}), worst surface (read from {rel})", "fg": fgs[0], "bg": bgc,
+                    "target": 3.0, "group": "outline", "ratio": r, "cat": "Focus outline"})
+    return out, errs
+
+
+def fs_rows(theme: dict, p: dict) -> list[dict]:
+    return fs_rows_and_errors(theme, p)[0]
 
 
 # --- docs: markers, blocks, README, images, privacy -----------------------------------------------------------------
@@ -770,13 +1109,13 @@ def png_size(path: Path) -> tuple[int, int] | None:
 def image_errors() -> list[str]:
     errs = []
     readme = (ROOT / "README.md").read_text(encoding="utf-8") if (ROOT / "README.md").exists() else ""
-    for name in IMAGES:
+    for name, size in IMAGES.items():
         f = ROOT / "images" / name
         if not f.exists():
             errs.append(f"images/{name}: missing screenshot")
             continue
-        if png_size(f) != IMAGE_SIZE:
-            errs.append(f"images/{name}: is {png_size(f)}, expected a PNG of {IMAGE_SIZE[0]}x{IMAGE_SIZE[1]}")
+        if png_size(f) != size:
+            errs.append(f"images/{name}: is {png_size(f)}, expected a PNG of {size[0]}x{size[1]}")
         if f"images/{name}" not in readme:
             errs.append(f"README.md does not show images/{name}")
     for ref in sorted(set(re.findall(r"(?<![\w/.-])images/([\w.-]+\.png)", readme))):
@@ -838,9 +1177,9 @@ def tok_name(token: str) -> str:
 
 def md_themes(theme: dict, p: dict) -> str:
     r = ["| Theme | Mode | Id | Package | Accent |", "| :--- | :--- | :--- | :--- | :--- |"]
-    for m, mode in (("slate", "dark"), ("daylight", "light")):
+    for m, mode in (("slate", "dark (Playnite Desktop)"), ("daylight", "light (Playnite Desktop)"), ("fs_slate", "dark (Playnite Fullscreen)")):
         t = p["themes"][m]
-        r.append(f"| {t['name']} | {mode} (Playnite Desktop) | `{t['id']}` | [`dist/{pthm_path(theme, p, m).name}`]({p['repo']}/raw/main/dist/{pthm_path(theme, p, m).name}) | `{tk(theme, m, 'accent.fill')}` |")
+        r.append(f"| {t['name']} | {mode} | `{t['id']}` | [`dist/{pthm_path(theme, p, m).name}`]({p['repo']}/raw/main/dist/{pthm_path(theme, p, m).name}) | `{tk(theme, palette(p, m), 'accent.fill')}` |")
     return "\n".join(r)
 
 
@@ -861,10 +1200,12 @@ def md_contrast_readme(theme: dict, p: dict) -> str:
     return "\n".join(L)
 
 
-def md_upstream(theme: dict, p: dict) -> str:
+def md_upstream(theme: dict, p: dict, kind: str = "Desktop") -> str:
     sums = upstream_sums()
-    L = ["| Vendored file (unmodified Playnite 10.64) | SHA-256 |", "| :--- | :--- |"]
+    L = [f"| Vendored {kind} file (unmodified Playnite 10.64) | SHA-256 |", "| :--- | :--- |"]
     for name, h in sorted(sums.items()):
+        if not name.startswith(kind + "/"):
+            continue
         L.append(f"| `upstream/playnite-10.64/{name}` | `{h}` |")
     return "\n".join(L)
 
@@ -960,9 +1301,20 @@ def md_static(theme: dict, p: dict) -> str:
          f"| Shipped files per theme | {len(files)} ({', '.join(files)}) |",
          f"| Color keys mapped to tokens | {len(p['constants']['colors'])} colors, {len(p['constants']['brushes'])} brushes, {len(p['constants']['added'])} added, 2 gradients replaced |",
          "| Color literals outside `Constants.xaml` in shipped files | none |",
-         f"| Contrast targets | {n_targets} met ({len(rs) - n_targets} report-only rows) |",
+         f"| Contrast targets (Desktop) | {n_targets} met ({len(rs) - n_targets} report-only rows) |",
          "| Theme ids | unique, not built-in, letters, digits and underscores |",
          f"| `ThemeApiVersion` | {p['playnite']['desktop_theme_api_version']} (loadable by Desktop API {p['playnite']['desktop_app_theme_api_version']}: same major, not newer) |"]
+    fr = fs_rows(theme, p)
+    fn = len([r for r in fr if r["group"] != "report"])
+    ffiles = theme_files(theme, p, FULLSCREEN[0])
+    fpt = FS_PATCHES
+    L += [f"| **Fullscreen** upstream files vendored and unchanged | {len([k for k in upstream_sums() if k.startswith('Fullscreen/')])} files match `SHA256SUMS` |",
+          f"| Fullscreen patches | {sum(c for _, items in fpt for _, _, c, _ in items)} replacements in {len(fpt)} files, each matched the expected number of times |",
+          f"| Fullscreen shipped files | {len(ffiles)} ({', '.join(ffiles)}) |",
+          "| Fullscreen color literals outside `Constants.xaml` | none |",
+          f"| Fullscreen text sizes | none under {FS_MIN_TEXT} px (FontSize, HtmlFontSize and the FontSize constants are checked) |",
+          f"| Fullscreen contrast targets (text, states, focus outlines) | {fn} met ({len(fr) - fn} report-only rows) |",
+          f"| Fullscreen `ThemeApiVersion` | {p['playnite']['fullscreen_theme_api_version']} (loadable by Fullscreen API {p['playnite']['fullscreen_app_theme_api_version']}: same major, not newer) |"]
     return "\n".join(L)
 
 
@@ -978,8 +1330,88 @@ def md_images(theme: dict, p: dict) -> str:
     return "\n".join(L)
 
 
+# --- Fullscreen blocks -------------------------------------------------------------------------------------------------
+
+def md_fs_upstream(theme: dict, p: dict) -> str:
+    return md_upstream(theme, p, "Fullscreen")
+
+
+def md_fs_constants(theme: dict, p: dict) -> str:
+    cs = cfg_of(p, "Fullscreen")
+    pal = palette(p, FULLSCREEN[0])
+    L = ["| Constants.xaml key | Kind | Token | Slate | Role |", "| :--- | :--- | :--- | :--- | :--- |"]
+    for grp, kind in (("colors", "Color"), ("brushes", "SolidColorBrush"), ("solids", "gradient replaced by a SolidColorBrush")):
+        for key, sp in cs[grp].items():
+            a = sp.get("alpha", 255)
+            L.append(f"| `{key}` | {kind} | {tok_name(sp['token'])}{' at alpha ' + str(a) if a != 255 else ''} | `{argb(tk(theme, pal, sp['token']), a)}` | {sp['role']} |")
+    for key, sp in cs["gradients"].items():
+        L.append(f"| `{key}` | LinearGradientBrush (geometry kept) | {tok_name(sp['token'])} alpha {sp['from_alpha']} to {sp['to_alpha']} | "
+                 f"`{argb(tk(theme, pal, sp['token']), sp['from_alpha'])}` to `{argb(tk(theme, pal, sp['token']), sp['to_alpha'])}` | {sp['role']} |")
+    L.append("")
+    L.append("Kept as in Playnite: " + ", ".join(f"`{k}` ({v})" for k, v in cs["keep_literal"].items()) + ". `SelectionBrush` (the focus outline: a gradient from `GlyphColor` to "
+             "`GlyphLightColor`) and every other key are untouched: they take their colors from the keys above. Fonts and sizes are not mapped: Fullscreen "
+             f"keeps Playnite's own (text of {FS_MIN_TEXT} px and up, Titillium Web). The generated file keeps the original keys and order (`--check` fails if one is dropped).")
+    return "\n".join(L)
+
+
+def md_fs_added(theme: dict, p: dict) -> str:
+    pal = palette(p, FULLSCREEN[0])
+    L = ["| New key | Token | Slate | Used for |", "| :--- | :--- | :--- | :--- |"]
+    for key, sp in cfg_of(p, "Fullscreen")["added"].items():
+        a = sp.get("alpha", 255)
+        L.append(f"| `{key}` | {tok_name(sp['token'])}{' at alpha ' + str(a) if a != 255 else ''} | `{argb(tk(theme, pal, sp['token']), a)}` | {sp['role']} |")
+    return "\n".join(L)
+
+
+def md_fs_patches(theme: dict, p: dict) -> str:
+    L = ["| File | Change | Times | Why |", "| :--- | :--- | ---: | :--- |"]
+    for rel, items in FS_PATCHES:
+        for pat, repl, count, why in items:
+            old = re.sub(r"\\(.)", r"\1", pat)
+            if old.startswith("(<Style"):
+                chg = "the `Thumb` style's `Background`: `{DynamicResource ControlBackgroundBrush}` -> `{DynamicResource SelectionLightBrush}`"
+            else:
+                chg = f"`{old}` -> `{repl}`"
+            L.append(f"| `{rel}` | {chg.replace('|', '/')} | {count} | {why} |")
+    return "\n".join(L)
+
+
+def md_fs_files(theme: dict, p: dict) -> str:
+    L = ["| Shipped file | In the package | Origin |", "| :--- | :--- | :--- |"]
+    for name in theme_files(theme, p, FULLSCREEN[0]):
+        org = {"theme.yaml": "generated: manifest", "Constants.xaml": "generated from the tokens, on the upstream file",
+               "LICENSE.txt": "generated: MIT license of this repository and of Playnite"}.get(name, "upstream file with the patches above")
+        L.append(f"| `{name}` | yes | {org} |")
+    return "\n".join(L)
+
+
+def md_fs_contrast(theme: dict, p: dict) -> str:
+    L = ["| Category | Pair | Ratio | Target | Result |", "| :--- | :--- | ---: | ---: | :--- |"]
+    for r in fs_rows(theme, p):
+        res = "report only" if r["group"] == "report" else ("pass" if r["ratio"] >= r["target"] else "**FAIL**")
+        tg = "-" if r["group"] == "report" else f"{r['target']:g}"
+        L.append(f"| {r['cat']} | {r['label']} (worst case `{r['bg'].upper()}`) | {r['ratio']:.2f} | {tg} | {res} |")
+    return "\n".join(L)
+
+
+def md_fs_contrast_readme(theme: dict, p: dict) -> str:
+    fr = fs_rows(theme, p)
+    L = ["| Fullscreen pair group | Target | Slate (lowest) |", "| :--- | ---: | ---: |"]
+    for cat, target in (("Main text", 4.5), ("Accent", 3.0), ("Light accent", 3.0), ("Control borders", 3.0), ("Status", 3.0), ("States", 3.0), ("Focus outline", 3.0)):
+        sel = [r for r in fr if r["cat"] == cat and r["group"] != "report"]
+        tg = {"Main text": "4.5 (7 on opaque surfaces)", "Accent": "4.5 (3 on the translucent bar)", "Light accent": "4.5 (3 on the translucent bars)",
+              "Status": "4.5 (3 for the icon)", "States": "4.5 (3 for check marks)"}.get(cat, f"{target:g}")
+        L.append(f"| {cat}: {len(sel)} pairs | {tg} | {min(r['ratio'] for r in sel):.2f} |")
+    n = len([r for r in fr if r["group"] != "report"])
+    L.append("")
+    L.append(f"Every pair is listed in [docs/mapping.md](docs/mapping.md#fullscreen-contrast); {n} targets, all met. Translucent surfaces are measured over a pure white and a pure black background picture.")
+    return "\n".join(L)
+
+
 BLOCKS = {"themes": md_themes, "contrast": None, "upstream": md_upstream, "constants": md_constants, "added": md_added, "patches": md_patches,
-          "files": md_files, "pthmcheck": md_pthmcheck, "static": md_static, "images": md_images}
+          "files": md_files, "pthmcheck": md_pthmcheck, "static": md_static, "images": md_images,
+          "fs-upstream": md_fs_upstream, "fs-constants": md_fs_constants, "fs-added": md_fs_added, "fs-patches": md_fs_patches, "fs-files": md_fs_files,
+          "fs-contrast": None}
 DOCS = [ROOT / "README.md", ROOT / "docs" / "mapping.md", ROOT / "docs" / "qa-report.md"]
 
 
@@ -988,6 +1420,10 @@ def render(path: Path, theme: dict, p: dict) -> str:
     for name, fn in BLOCKS.items():
         if name == "contrast":
             fn = md_contrast_readme if path.name == "README.md" else md_contrast
+        if name == "fs-contrast":
+            fn = md_fs_contrast_readme if path.name == "README.md" else md_fs_contrast
+        if not re.search(rf"<!-- build:{name} -->", text):
+            continue
         pat = re.compile(rf"(<!-- build:{name} -->)\n?.*?\n?(<!-- /build:{name} -->)", re.S)
         text = pat.sub(lambda m: m.group(1) + "\n" + fn(theme, p) + "\n" + m.group(2), text)
     return text
@@ -1058,10 +1494,11 @@ def main() -> int:
         return 1
     rs = rows(theme, p)
     n_rows = len([r for r in rs if r["group"] != "report"])
+    n_fs = len([r for r in fs_rows(theme, p) if r["group"] != "report"])
     print(f"ok: {len(MODES)} themes x {len(theme_files(theme, p, 'slate'))} shipped files (folder and .pthm as built, deterministic metadata), {len(upstream_sums())} upstream "
           f"files unchanged, theme.yaml fields and ids, XAML well formed, no color literal outside Constants.xaml, all Flatcap resources defined, "
-          f"{len(DOCS)} docs current with their markers, {len(IMAGES)} screenshots of {IMAGE_SIZE[0]}x{IMAGE_SIZE[1]}, README sections, no private "
-          f"paths, IPs or hosts, {n_rows} contrast targets met ({len(rs) - n_rows} report-only rows)")
+          f"{len(DOCS)} docs current with their markers, {len(IMAGES)} screenshots (Desktop 1440x900, Fullscreen {FS_IMAGE_SIZE[0]}x{FS_IMAGE_SIZE[1]}), README sections, no private "
+          f"paths, IPs or hosts, {n_rows} Desktop contrast targets and {n_fs} Fullscreen ones met ({len(rs) - n_rows + len(fs_rows(theme, p)) - n_fs} report-only rows)")
     return 0
 
 

@@ -15,7 +15,7 @@ Playnite loads **only the files a theme ships** and takes every other file from 
 The unmodified files, as shipped in the Playnite 10.64 release archive (`10.64.7z`, SHA-256 `a4538628d6a0f49cd337c8a8640294849d736217bf4d2d7c99c1eb1b68428611`), are vendored in `upstream/playnite-10.64/`. `--check` fails if any of them changes.
 
 <!-- build:upstream -->
-| Vendored file (unmodified Playnite 10.64) | SHA-256 |
+| Vendored Desktop file (unmodified Playnite 10.64) | SHA-256 |
 | :--- | :--- |
 | `upstream/playnite-10.64/Desktop/Default/Constants.xaml` | `74b9f2b280e580b8bc06ef59e596de068cd529d375166d60de26d8c29f31ac4e` |
 | `upstream/playnite-10.64/Desktop/Default/CustomControls/SidebarItem.xaml` | `ae8057910b0c61f56d077c6a2e95a5e2988324dafe8af7d8304668cdb7367b1a` |
@@ -245,8 +245,201 @@ Pairs are the foreground and background that Playnite actually combines. `fg opa
 | daylight | List item, keyboard focus without selection: accent.on on accent.fill (TextBrushDark on GlyphBrush, read from DefaultControls/ListBox.xaml) `#FAFBFC` / `#285D85` | 6.77 | 4.5 | pass |
 <!-- /build:contrast -->
 
+## Fullscreen
+
+Flatcap Slate for Fullscreen (`Flatcap_Slate_Fullscreen`) follows the same method on the Default Fullscreen theme of Playnite 10.64, whose own files are in `upstream/playnite-10.64/Fullscreen/Default/` (a different theme tree from Desktop; `Themes/Fullscreen/` in the Playnite data folder). Its `theme.yaml` has a stable `Id` that differs from the Desktop themes' and declares `ThemeApiVersion: 2.0.0`, the same as the Default Fullscreen theme (Playnite 10.64's Fullscreen theme API is 2.10.0: `FullscreenApiVersion` in `source/Playnite/Themes.cs`).
+
+What Fullscreen needs that Desktop did not: it is operated with a controller or the keyboard and read from a couch. So the build (a) never maps fonts or sizes (Playnite's own, 18 px and up; `--check` fails under 18 px), (b) checks the **focus outline** of every focusable control (ten of them) at 3:1 on every surface it can sit on, and (c) reads the text and fill of the focused and hovered states from the shipped XAML, as it does for Desktop. Surfaces that are translucent (top and bottom bars, details panel) are measured over a pure white and a pure black background picture.
+
+### Upstream files (Fullscreen)
+
+<!-- build:fs-upstream -->
+| Vendored Fullscreen file (unmodified Playnite 10.64) | SHA-256 |
+| :--- | :--- |
+| `upstream/playnite-10.64/Fullscreen/Default/Constants.xaml` | `7de70b05c29aa921bf21190da03bacc59e87ae6535dc30a057369ee25519a7b6` |
+| `upstream/playnite-10.64/Fullscreen/Default/CustomControls/FilterDbItemtSelection.xaml` | `f66144fa33727eacd5a0091443a19b36b85338c336c50e724da2b946b0466db2` |
+| `upstream/playnite-10.64/Fullscreen/Default/CustomControls/FilterEnumListSelection.xaml` | `b601a26934a940022195fa14b34a5190e2a96f43a30c81a589035780b888c317` |
+| `upstream/playnite-10.64/Fullscreen/Default/CustomControls/FilterPresetSelector.xaml` | `f785f8cc7ee783d0b3f40cad989cdd5bcb5830542f4076ede2be45d43a470bcf` |
+| `upstream/playnite-10.64/Fullscreen/Default/CustomControls/FilterStringListSelection.xaml` | `075039d2c84a4d58d93bcb195cfcbc0b0705c283146f215bf83ca5da953beef0` |
+| `upstream/playnite-10.64/Fullscreen/Default/DefaultControls/Button.xaml` | `a48b86058b377a68351f4458fc5ed1926d67c2643394af88b772069b6e627f59` |
+| `upstream/playnite-10.64/Fullscreen/Default/DefaultControls/CheckBox.xaml` | `41570091f4ad60b25381d3d0117c6425bce5ca6d72c5d318da3c8578fcb27b36` |
+| `upstream/playnite-10.64/Fullscreen/Default/DefaultControls/ComboBox.xaml` | `bbabc0dcc75f120064a73670b023eb2ebca3ffe05070698126beb55822f68c98` |
+| `upstream/playnite-10.64/Fullscreen/Default/DefaultControls/ProgressBar.xaml` | `69bbf2d9ca3f9dbfbe789502aaf3c4afa3953677f0a6bfcf92ded0221df9f1d1` |
+| `upstream/playnite-10.64/Fullscreen/Default/DefaultControls/ScrollViewer.xaml` | `116cd6c54535bdc8634fee676ebdf232567541348e46c6b9276b16ec3f966baf` |
+| `upstream/playnite-10.64/Fullscreen/Default/DefaultControls/Slider.xaml` | `3e07eef7cf7b0c709c9e7ad1f9bd2fd5e25abbf7d69a8c09900ed0e38d1858e0` |
+| `upstream/playnite-10.64/Fullscreen/Default/DefaultControls/TextBox.xaml` | `d91f2c4318e8a24dfb3983c46466e822a8075a5b5ee739b18a843fedf980f991` |
+| `upstream/playnite-10.64/Fullscreen/Default/DefaultControls/ToggleButton.xaml` | `0c74374b957f9d0cd0a78be50568fdc82abb9f99720534b57f7fe330d9bf26bf` |
+| `upstream/playnite-10.64/Fullscreen/Default/DefaultControls/ToolTip.xaml` | `b47e7a414594cbdfc1d773fa067551a6d8dfbec32867bebd2e6c9aa32a1d32f9` |
+| `upstream/playnite-10.64/Fullscreen/Default/DerivedStyles/ButtonBottomMenu.xaml` | `a99c026545084331645bca499bbaaa2280cb24aecf79795da51b81fb1725228f` |
+| `upstream/playnite-10.64/Fullscreen/Default/DerivedStyles/ButtonTopMenu.xaml` | `966592768764269080badb195d8362b1513d476979d790dd27b9dbf134d6c572` |
+| `upstream/playnite-10.64/Fullscreen/Default/DerivedStyles/ListGameItemStyle.xaml` | `19be9991c9fb98b8305198c809017121f9d292de41811cce97b8f3bdfc10609a` |
+| `upstream/playnite-10.64/Fullscreen/Default/DerivedStyles/ListGameItemTemplate.xaml` | `c1f8ffe0da1196c6c060dc86e3a74f886de6793180b587f9a7482941e6eb5760` |
+| `upstream/playnite-10.64/Fullscreen/Default/DescriptionView.html` | `c0a3afa07efdd33e2dbc4a60864f0168186a188d595b97d934eefc4cb39ca522` |
+| `upstream/playnite-10.64/Fullscreen/Default/Images/ButtonPrompts/PlayStation/PlayStation.xaml` | `d00d7170aaafdf96d89ffd59ecc00860f02627363c7997c12cd088d01ed0439d` |
+| `upstream/playnite-10.64/Fullscreen/Default/Images/ButtonPrompts/Xbox/Xbox.xaml` | `ae95da5371fe88080fd1406672495fa8ac427e6f7226b7a2a21225e736ce83d0` |
+| `upstream/playnite-10.64/Fullscreen/Default/Media.xaml` | `3d693e6c6bc98ff1246cd4f6809ecf55196e99b176124078815f747f03a327e7` |
+| `upstream/playnite-10.64/Fullscreen/Default/Views/CustomMenus.xaml` | `38bc8d43bfdc1aa48da561758ade32b6357578b24ceba7db0d0754e1268b59cc` |
+| `upstream/playnite-10.64/Fullscreen/Default/Views/FiltersAdditional.xaml` | `dab3277e28bcd7fb9d573a0d2942691904973af4db7f0c6d219902ef0195f41f` |
+| `upstream/playnite-10.64/Fullscreen/Default/Views/FiltersView.xaml` | `91417a4890fae0514cb5a7bf7bd4822495394fd198945d21de86d5612e2cdb5d` |
+| `upstream/playnite-10.64/Fullscreen/Default/Views/GameDetails.xaml` | `67f338752369a532f2b8e1bd8e74f26dc5c1682d2a4fb3c23bed3ade448385d1` |
+| `upstream/playnite-10.64/Fullscreen/Default/Views/GameMenu.xaml` | `999878597b9e78dee9eac3e1e0f664539cf81739764787be0953e4d3583fdc3f` |
+| `upstream/playnite-10.64/Fullscreen/Default/Views/GameStatus.xaml` | `01c6e72b39415952f1ad090681af11f9dccb3b1cbee715fe5491b2adad306996` |
+| `upstream/playnite-10.64/Fullscreen/Default/Views/HelpMenu.xaml` | `f601ca6f8820cc57156679701356daf7ac7241e2eda755805d9f68c66af7f313` |
+| `upstream/playnite-10.64/Fullscreen/Default/Views/ItemSelection.xaml` | `288751c1ecf3101f39c64624c6a7c4ab107437c30060c6dd2b500c4e2fbe0cc3` |
+| `upstream/playnite-10.64/Fullscreen/Default/Views/Main.xaml` | `1af01eca019727e8785df1e4055df9595f2bbe65fb8115aded064d4ddf6caf2a` |
+| `upstream/playnite-10.64/Fullscreen/Default/Views/MainMenu.xaml` | `81710b10c02f458fd568cbd1d19b72480849a424077b63d2800c70c66fe2d6f3` |
+| `upstream/playnite-10.64/Fullscreen/Default/Views/MessageBox.xaml` | `bc54543c547873df615c0111abed8982f9e4b3a6b6bbd14a657a02125923339f` |
+| `upstream/playnite-10.64/Fullscreen/Default/Views/NotificationsMenu.xaml` | `18ac64d1b66041bf501ed6352310cca898074540c6386d5241e2b0486e52b98a` |
+| `upstream/playnite-10.64/Fullscreen/Default/Views/SettingsMenus.xaml` | `233b897e594a465a84b5c1272acceb3dd202f547a355122ab8c4e924ecd659b9` |
+| `upstream/playnite-10.64/Fullscreen/Default/Views/TextInput.xaml` | `f59ccbb89346a85e20226d9c3b29df0c87567d5ef60f5813cc69a1480385d9d3` |
+| `upstream/playnite-10.64/Fullscreen/Default/theme.yaml` | `6867a3ef5b0144b22ca232f245bd942efea91042a1c99256f8673cfd3332b5c6` |
+<!-- /build:fs-upstream -->
+
+### Constants.xaml (Fullscreen)
+
+The Default Fullscreen `Constants.xaml` keeps every key and its order. Colors and the blue gradients come from the tokens; the gradients of the main background and the menus become flat colors, those of the bars and the details panel keep their geometry and stops and change color.
+
+<!-- build:fs-constants -->
+| Constants.xaml key | Kind | Token | Slate | Role |
+| :--- | :--- | :--- | :--- | :--- |
+| `GlyphColor` | Color | `accent.fill` | `#FF9BBFDF` | Accent: focus outline (first stop of SelectionBrush), icons, glow around the focused cover |
+| `GlyphLightColor` | Color | `accent.hover` | `#FFACCCE7` | Light accent: second stop of SelectionBrush, hovered text and icons |
+| `SelectionLightColor` | Color | `border.control` | `#FF8593A5` | Outlines of fields and check boxes, scroll thumb, slider track |
+| `OverlayColor` | Color | `bg.canvas` at alpha 187 | `#BB191D22` | Translucent layer over the art behind full-screen overlays |
+| `ControlBackgroundColor` | Color | `bg.raised` | `#FF292F36` | Text boxes, filter fields, check boxes, resting list rows |
+| `ControlBackgroundColorDark` | Color | `bg.canvas` | `#FF191D22` | Focused or hovered controls, game titles on covers, tooltips, check mark background |
+| `TextColor` | Color | `text.primary` | `#FFD5DBE3` | Main text |
+| `TextColorDark` | Color | `text.disabled` | `#FF7E8998` | Disabled controls (Playnite also draws them at 50% opacity) |
+| `WarningBrush` | SolidColorBrush | `danger.fg` | `#FFE2A0A5` | Warning text (was a fixed salmon red) |
+| `MainBackgourndBrush` | gradient replaced by a SolidColorBrush | `bg.canvas` | `#FF191D22` | Window background (was a blue radial gradient; the key keeps Playnite's spelling) |
+| `OverlayMenuBackgroundBrush` | gradient replaced by a SolidColorBrush | `bg.surface` | `#FF20252B` | Menus and dialogs (was a blue gradient) |
+| `TopBarBackgroundBrush` | LinearGradientBrush (geometry kept) | `bg.surface` alpha 255 to 204 | `#FF20252B` to `#CC20252B` | Top bar over the background art (same geometry as the original) |
+| `BottomBarBackgroundBrush` | LinearGradientBrush (geometry kept) | `bg.surface` alpha 255 to 204 | `#FF20252B` to `#CC20252B` | Bottom bar over the background art |
+| `GameDetailsBackgroundBrush` | LinearGradientBrush (geometry kept) | `bg.canvas` alpha 0 to 238 | `#00191D22` to `#EE191D22` | Game details panel fading in over the art |
+
+Kept as in Playnite: `BlackColor` (unchanged: pure black, used only for the shadow under the game title), `WhiteColor` (unchanged: pure white, not used by any Default Fullscreen style). `SelectionBrush` (the focus outline: a gradient from `GlyphColor` to `GlyphLightColor`) and every other key are untouched: they take their colors from the keys above. Fonts and sizes are not mapped: Fullscreen keeps Playnite's own (text of 18 px and up, Titillium Web). The generated file keeps the original keys and order (`--check` fails if one is dropped).
+<!-- /build:fs-constants -->
+
+#### Added keys (Fullscreen)
+
+<!-- build:fs-added -->
+| New key | Token | Slate | Used for |
+| :--- | :--- | :--- | :--- |
+| `FlatcapDangerBrush` | `danger.fg` | `#FFE2A0A5` | Critical battery icon (was Red) |
+| `FlatcapScrimBrush` | `bg.canvas` at alpha 170 | `#AA191D22` | Dimmed layer behind selection menus and over uninstalled covers (was #AA000000) |
+<!-- /build:fs-added -->
+
+### Patches to other Default Fullscreen files
+
+<!-- build:fs-patches -->
+| File | Change | Times | Why |
+| :--- | :--- | ---: | :--- |
+| `Views/Main.xaml` | `<Setter Property="Foreground" Value="Red" />` -> `<Setter Property="Foreground" Value="{DynamicResource FlatcapDangerBrush}" />` | 1 | critical battery icon was a fixed red |
+| `Views/Main.xaml` | `Foreground="White" FontSize="30" />` -> `Foreground="{DynamicResource TextBrush}" FontSize="30" />` | 1 | notifications icon was fixed white |
+| `Views/Main.xaml` | `<TextBlock  Foreground="White"` -> `<TextBlock  Foreground="{DynamicResource TextBrush}"` | 1 | name of the active filter was fixed white |
+| `Views/GameDetails.xaml` | `<DropShadowEffect Color="White" BlurRadius="20"` -> `<DropShadowEffect Color="{DynamicResource TextColor}" BlurRadius="20"` | 1 | glow around the cover was fixed white |
+| `Views/GameDetails.xaml` | `Foreground="White" FontFamily="{DynamicResource FontTitilliumWebBold}"` -> `Foreground="{DynamicResource TextBrush}" FontFamily="{DynamicResource FontTitilliumWebBold}"` | 1 | game title was fixed white |
+| `Views/GameDetails.xaml` | `<DropShadowEffect ShadowDepth="2" Color="Black"` -> `<DropShadowEffect ShadowDepth="2" Color="{DynamicResource BlackColor}"` | 1 | shadow under the game title: same black, now through the kept BlackColor resource |
+| `Views/GameDetails.xaml` | `HtmlFontSize="16"` -> `HtmlFontSize="20"` | 1 | the description was the only text under 18 px; at couch distance it is raised to 20 |
+| `Views/ItemSelection.xaml` | `<Setter Property="Background" Value="#AA000000" />` -> `<Setter Property="Background" Value="{DynamicResource FlatcapScrimBrush}" />` | 2 | dimmed layer behind a selection menu |
+| `Views/GameMenu.xaml` | `<Setter Property="Background" Value="#AA000000" />` -> `<Setter Property="Background" Value="{DynamicResource FlatcapScrimBrush}" />` | 1 | dimmed layer behind the game menu |
+| `DerivedStyles/ListGameItemTemplate.xaml` | `<Border Background="#AA000000" x:Name="BorderDarken"` -> `<Border Background="{DynamicResource FlatcapScrimBrush}" x:Name="BorderDarken"` | 1 | darkening of the cover of an uninstalled game |
+| `Views/SettingsMenus.xaml` | `BorderThickness="2" BorderBrush="{DynamicResource ControlBackgroundBrush}"` -> `BorderThickness="2" BorderBrush="{DynamicResource SelectionLightBrush}"` | 1 | the check box outline had the contrast of the fill behind it (1.2:1); it takes the control border color (3:1) |
+| `Views/SettingsMenus.xaml` | `FontFamily="Marlett" Foreground="White"` -> `FontFamily="Marlett" Foreground="{DynamicResource TextBrush}"` | 1 | check mark was fixed white |
+| `DefaultControls/CheckBox.xaml` | `BorderThickness="2" BorderBrush="{DynamicResource ControlBackgroundBrush}"` -> `BorderThickness="2" BorderBrush="{DynamicResource SelectionLightBrush}"` | 1 | the check box outline had the contrast of the fill behind it (1.2:1); it takes the control border color (3:1) |
+| `DefaultControls/CheckBox.xaml` | `FontFamily="Marlett" Foreground="White"` -> `FontFamily="Marlett" Foreground="{DynamicResource TextBrush}"` | 1 | check mark was fixed white |
+| `DefaultControls/ComboBox.xaml` | `<Setter Property="Foreground" Value="Black" />` -> `<Setter Property="Foreground" Value="{DynamicResource TextBrush}" />` | 4 | focused or hovered combo box and combo box item drew Black text on a dark fill (about 1.1:1 in the Default theme); the text keeps the main text color |
+| `DefaultControls/ScrollViewer.xaml` | the `Thumb` style's `Background`: `{DynamicResource ControlBackgroundBrush}` -> `{DynamicResource SelectionLightBrush}` | 1 | the scroll bar thumb had the contrast of its own track (1.2:1); it takes the control border color (3:1) |
+| `DefaultControls/Slider.xaml` | `<Border Height="6" Background="{DynamicResource ControlBackgroundBrush}" />` -> `<Border Height="6" Background="{DynamicResource SelectionLightBrush}" />` | 1 | the unfilled track of a slider had the contrast of the fill behind it (1.2:1); it takes the control border color (3:1) |
+<!-- /build:fs-patches -->
+
+The patches fall in four groups: fixed white, red and black colors become resources; the dimmed layers (`#AA000000`) become the scrim brush; the **focus-legibility fixes** (the combo box drew `Black` text on its dark focused and hovered fill, about 1.1:1 in the Default theme); and the **non-text contrast fixes** (the check box outline, the scroll bar thumb and the unfilled slider track used the fill of the control behind them, 1.2:1, and take the control border color, 3:1). The description text is raised from 16 to 20 px, the only text under 18 px in the Default Fullscreen theme.
+
+### Shipped files (Fullscreen)
+
+<!-- build:fs-files -->
+| Shipped file | In the package | Origin |
+| :--- | :--- | :--- |
+| `Constants.xaml` | yes | generated from the tokens, on the upstream file |
+| `DefaultControls/CheckBox.xaml` | yes | upstream file with the patches above |
+| `DefaultControls/ComboBox.xaml` | yes | upstream file with the patches above |
+| `DefaultControls/ScrollViewer.xaml` | yes | upstream file with the patches above |
+| `DefaultControls/Slider.xaml` | yes | upstream file with the patches above |
+| `DerivedStyles/ListGameItemTemplate.xaml` | yes | upstream file with the patches above |
+| `LICENSE.txt` | yes | generated: MIT license of this repository and of Playnite |
+| `Views/GameDetails.xaml` | yes | upstream file with the patches above |
+| `Views/GameMenu.xaml` | yes | upstream file with the patches above |
+| `Views/ItemSelection.xaml` | yes | upstream file with the patches above |
+| `Views/Main.xaml` | yes | upstream file with the patches above |
+| `Views/SettingsMenus.xaml` | yes | upstream file with the patches above |
+| `theme.yaml` | yes | generated: manifest |
+<!-- /build:fs-files -->
+
+### Fullscreen contrast
+
+<!-- build:fs-contrast -->
+| Category | Pair | Ratio | Target | Result |
+| :--- | :--- | ---: | ---: | :--- |
+| Main text | TextBrush (labels, titles, description text) on MainBackgourndBrush (main background) (worst case `#191D22`) | 12.15 | 7 | pass |
+| Main text | TextBrush (labels, titles, description text) on OverlayMenuBackgroundBrush (menus and dialogs) (worst case `#20252B`) | 11.07 | 7 | pass |
+| Main text | TextBrush (labels, titles, description text) on ControlBackgroundBrush (text boxes and filter fields) (worst case `#292F36`) | 9.70 | 7 | pass |
+| Main text | TextBrush (labels, titles, description text) on ControlBackgroundDarkBrush (focused or hovered controls, game titles on covers, tooltips) (worst case `#191D22`) | 12.15 | 7 | pass |
+| Main text | TextBrush (labels, titles, description text) on TopBarBackgroundBrush (top and bottom bars, over the background art) (worst case `#4D5155`) | 5.77 | 4.5 | pass |
+| Main text | TextBrush (labels, titles, description text) on GameDetailsBackgroundBrush (game details panel, over the art) (worst case `#282C31`) | 10.07 | 4.5 | pass |
+| Accent | GlyphBrush (accent: description links, icons, hover text) on MainBackgourndBrush (main background) (worst case `#191D22`) | 8.80 | 4.5 | pass |
+| Accent | GlyphBrush (accent: description links, icons, hover text) on OverlayMenuBackgroundBrush (menus and dialogs) (worst case `#20252B`) | 8.02 | 4.5 | pass |
+| Accent | GlyphBrush (accent: description links, icons, hover text) on ControlBackgroundBrush (text boxes and filter fields) (worst case `#292F36`) | 7.02 | 4.5 | pass |
+| Accent | GlyphBrush (accent: description links, icons, hover text) on ControlBackgroundDarkBrush (focused or hovered controls, game titles on covers, tooltips) (worst case `#191D22`) | 8.80 | 4.5 | pass |
+| Accent | GlyphBrush (accent: description links, icons, hover text) on TopBarBackgroundBrush (top and bottom bars, over the background art) (worst case `#4D5155`) | 4.18 | 3 | pass |
+| Accent | GlyphBrush (accent: description links, icons, hover text) on GameDetailsBackgroundBrush (game details panel, over the art) (worst case `#282C31`) | 7.29 | 4.5 | pass |
+| Light accent | GlyphLightBrush (light accent: icons, hover text in lists) on MainBackgourndBrush (main background) (worst case `#191D22`) | 10.12 | 4.5 | pass |
+| Light accent | GlyphLightBrush (light accent: icons, hover text in lists) on OverlayMenuBackgroundBrush (menus and dialogs) (worst case `#20252B`) | 9.22 | 4.5 | pass |
+| Light accent | GlyphLightBrush (light accent: icons, hover text in lists) on ControlBackgroundBrush (text boxes and filter fields) (worst case `#292F36`) | 8.07 | 4.5 | pass |
+| Light accent | GlyphLightBrush (light accent: icons, hover text in lists) on ControlBackgroundDarkBrush (focused or hovered controls, game titles on covers, tooltips) (worst case `#191D22`) | 10.12 | 4.5 | pass |
+| Light accent | GlyphLightBrush (light accent: icons, hover text in lists) on TopBarBackgroundBrush (top and bottom bars, over the background art) (worst case `#4D5155`) | 4.81 | 3 | pass |
+| Light accent | GlyphLightBrush (light accent: icons, hover text in lists) on GameDetailsBackgroundBrush (game details panel, over the art) (worst case `#282C31`) | 8.38 | 3 | pass |
+| Control borders | SelectionLightBrush (outlines of fields and check boxes, scroll thumb, slider track) on MainBackgourndBrush (main background) (worst case `#191D22`) | 5.41 | 3 | pass |
+| Control borders | SelectionLightBrush (outlines of fields and check boxes, scroll thumb, slider track) on OverlayMenuBackgroundBrush (menus and dialogs) (worst case `#20252B`) | 4.93 | 3 | pass |
+| Control borders | SelectionLightBrush (outlines of fields and check boxes, scroll thumb, slider track) on ControlBackgroundBrush (text boxes and filter fields) (worst case `#292F36`) | 4.32 | 3 | pass |
+| Control borders | SelectionLightBrush (outlines of fields and check boxes, scroll thumb, slider track) on ControlBackgroundDarkBrush (focused or hovered controls, game titles on covers, tooltips) (worst case `#191D22`) | 5.41 | 3 | pass |
+| Status | WarningBrush (warning text) on MainBackgourndBrush (main background) (worst case `#191D22`) | 7.91 | 4.5 | pass |
+| Status | WarningBrush (warning text) on OverlayMenuBackgroundBrush (menus and dialogs) (worst case `#20252B`) | 7.20 | 4.5 | pass |
+| Status | WarningBrush (warning text) on ControlBackgroundBrush (text boxes and filter fields) (worst case `#292F36`) | 6.31 | 4.5 | pass |
+| Status | WarningBrush (warning text) on ControlBackgroundDarkBrush (focused or hovered controls, game titles on covers, tooltips) (worst case `#191D22`) | 7.91 | 4.5 | pass |
+| Status | FlatcapDangerBrush (critical battery icon) on TopBarBackgroundBrush (top and bottom bars, over the background art) (worst case `#4D5155`) | 3.76 | 3 | pass |
+| Disabled | TextBrushDark (disabled controls (WCAG exempts inactive components; Playnite also draws them at 50% opacity); report only) on MainBackgourndBrush (main background) (worst case `#191D22`) | 4.77 | - | report only |
+| Disabled | TextBrushDark (disabled controls (WCAG exempts inactive components; Playnite also draws them at 50% opacity); report only) on OverlayMenuBackgroundBrush (menus and dialogs) (worst case `#20252B`) | 4.35 | - | report only |
+| States | Button, keyboard focus: TextBrush on ControlBackgroundDarkBrush (read from DefaultControls/Button.xaml) (worst case `#191D22`) | 12.15 | 4.5 | pass |
+| States | Button, hover: TextBrush on ControlBackgroundDarkBrush (read from DefaultControls/Button.xaml) (worst case `#191D22`) | 12.15 | 4.5 | pass |
+| States | Toggle button, keyboard focus: TextBrush on ControlBackgroundDarkBrush (read from DefaultControls/ToggleButton.xaml) (worst case `#191D22`) | 12.15 | 4.5 | pass |
+| States | Toggle button, checked and focused: SelectionBrush on ControlBackgroundDarkBrush (read from DefaultControls/ToggleButton.xaml) (worst case `#191D22`) | 8.80 | 4.5 | pass |
+| States | Combo box, keyboard focus: TextBrush on ControlBackgroundDarkBrush (read from DefaultControls/ComboBox.xaml) (worst case `#191D22`) | 12.15 | 4.5 | pass |
+| States | Combo box, hover: TextBrush on ControlBackgroundDarkBrush (read from DefaultControls/ComboBox.xaml) (worst case `#191D22`) | 12.15 | 4.5 | pass |
+| States | Combo box item, keyboard focus: TextBrush on ControlBackgroundBrush (read from DefaultControls/ComboBox.xaml) (worst case `#292F36`) | 9.70 | 4.5 | pass |
+| States | Combo box item, hover: TextBrush on ControlBackgroundBrush (read from DefaultControls/ComboBox.xaml) (worst case `#292F36`) | 9.70 | 4.5 | pass |
+| States | Text box, rest: TextBrush on ControlBackgroundBrush (read from DefaultControls/TextBox.xaml) (worst case `#292F36`) | 9.70 | 4.5 | pass |
+| States | Text box, keyboard focus: TextBrush on ControlBackgroundDarkBrush (read from DefaultControls/TextBox.xaml) (worst case `#191D22`) | 12.15 | 4.5 | pass |
+| States | Check box, keyboard focus: TextBrush on ControlBackgroundDarkBrush (read from DefaultControls/CheckBox.xaml) (worst case `#191D22`) | 12.15 | 4.5 | pass |
+| States | Check mark in a check box (graphic): TextBrush on CheckBoxCheckMarkBkBrush (read from DefaultControls/CheckBox.xaml) (worst case `#191D22`) | 12.15 | 3 | pass |
+| States | Check mark in the settings list (graphic): TextBrush on CheckBoxCheckMarkBkBrush (read from Views/SettingsMenus.xaml) (worst case `#191D22`) | 12.15 | 3 | pass |
+| States | Filter item, keyboard focus: TextBrush on ControlBackgroundDarkBrush (read from Views/FiltersView.xaml) (worst case `#191D22`) | 12.15 | 4.5 | pass |
+| States | Tool tip: TextBrush on ControlBackgroundDarkBrush (read from DefaultControls/ToolTip.xaml) (worst case `#191D22`) | 12.15 | 4.5 | pass |
+| States | Game title on a cover: TextBrush on ControlBackgroundDarkBrush (read from DerivedStyles/ListGameItemTemplate.xaml) (worst case `#191D22`) | 12.15 | 4.5 | pass |
+| Focus outline | Focus outline of the button (SelectionBrush), worst surface (read from DefaultControls/Button.xaml) (worst case `#4D5155`) | 4.18 | 3 | pass |
+| Focus outline | Focus outline of the toggle button (SelectionBrush), worst surface (read from DefaultControls/ToggleButton.xaml) (worst case `#4D5155`) | 4.18 | 3 | pass |
+| Focus outline | Focus outline of the check box (SelectionBrush), worst surface (read from DefaultControls/CheckBox.xaml) (worst case `#4D5155`) | 4.18 | 3 | pass |
+| Focus outline | Focus outline of the combo box (SelectionBrush), worst surface (read from DefaultControls/ComboBox.xaml) (worst case `#4D5155`) | 4.18 | 3 | pass |
+| Focus outline | Focus outline of the text box (SelectionBrush), worst surface (read from DefaultControls/TextBox.xaml) (worst case `#4D5155`) | 4.18 | 3 | pass |
+| Focus outline | Focus outline of the slider (SelectionBrush), worst surface (read from DefaultControls/Slider.xaml) (worst case `#4D5155`) | 4.18 | 3 | pass |
+| Focus outline | Focus outline of the filter item (SelectionBrush), worst surface (read from Views/FiltersView.xaml) (worst case `#4D5155`) | 4.18 | 3 | pass |
+| Focus outline | Focus outline of the settings list item (SelectionBrush), worst surface (read from Views/SettingsMenus.xaml) (worst case `#4D5155`) | 4.18 | 3 | pass |
+| Focus outline | Focus outline of the top bar button (GlyphBrush), worst surface (read from DerivedStyles/ButtonTopMenu.xaml) (worst case `#4D5155`) | 4.18 | 3 | pass |
+| Focus outline | Focus outline of the game cover (SelectionBrush), worst surface (read from DerivedStyles/ListGameItemStyle.xaml) (worst case `#4D5155`) | 4.18 | 3 | pass |
+<!-- /build:fs-contrast -->
+
 ## Not mapped
 
 - Playnite's logo (`Resources`), icon fonts and the system fonts for the Playnite icon font are untouched.
-- Fullscreen mode (`Themes/Fullscreen`): no theme is shipped.
+- Fullscreen: the button prompt icons (`Images/ButtonPrompts`, Xbox and PlayStation) are Playnite's, are vendored for reference and are not shipped; the cover art and the user's background picture are the user's own.
+- Flatcap Daylight for Fullscreen: not made (technical decision, see the README).
 - The notification, dialog and settings windows use the same `Constants.xaml` brushes, so they change color too, but they were not reviewed one by one.

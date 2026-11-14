@@ -12,7 +12,9 @@
     "tested_os": "Windows",
     "upstream_tag": "10.64",
     "desktop_theme_api_version": "2.0.0",
-    "desktop_app_theme_api_version": "2.10.0"
+    "desktop_app_theme_api_version": "2.10.0",
+    "fullscreen_theme_api_version": "2.0.0",
+    "fullscreen_app_theme_api_version": "2.10.0"
   },
   "themes": {
     "slate": {
@@ -24,10 +26,17 @@
       "id": "Flatcap_Daylight_Desktop",
       "name": "Flatcap Daylight",
       "mode": "Desktop"
+    },
+    "fs_slate": {
+      "id": "Flatcap_Slate_Fullscreen",
+      "name": "Flatcap Slate",
+      "mode": "Fullscreen",
+      "palette": "slate"
     }
   },
   "upstream": {
     "root": "upstream/playnite-10.64/Desktop/Default",
+    "fullscreen_root": "upstream/playnite-10.64/Fullscreen/Default",
     "license": "LICENSES/Playnite-MIT.txt",
     "files": {}
   },
@@ -92,6 +101,47 @@
       "FlatcapWarningBrush": {"token": "warning.fg", "role": "Favorite icon (was Yellow)"},
       "FlatcapScrimBrush": {"token": "bg.canvas", "alpha": 204, "role": "Overlay on game covers (name, hover, uninstalled); was 60% or 67% black"},
       "FlatcapScrimTextBrush": {"token": "text.primary", "role": "Text on the cover overlay"}
+    }
+  },
+  "fullscreen": {
+    "constants": {
+      "colors": {
+        "GlyphColor": {"token": "accent.fill", "role": "Accent: focus outline (first stop of SelectionBrush), icons, glow around the focused cover"},
+        "GlyphLightColor": {"token": "accent.hover", "role": "Light accent: second stop of SelectionBrush, hovered text and icons"},
+        "SelectionLightColor": {"token": "border.control", "role": "Outlines of fields and check boxes, scroll thumb, slider track"},
+        "OverlayColor": {"token": "bg.canvas", "alpha": 187, "role": "Translucent layer over the art behind full-screen overlays"},
+        "ControlBackgroundColor": {"token": "bg.raised", "role": "Text boxes, filter fields, check boxes, resting list rows"},
+        "ControlBackgroundColorDark": {"token": "bg.canvas", "role": "Focused or hovered controls, game titles on covers, tooltips, check mark background"},
+        "TextColor": {"token": "text.primary", "role": "Main text"},
+        "TextColorDark": {"token": "text.disabled", "role": "Disabled controls (Playnite also draws them at 50% opacity)"}
+      },
+      "brushes": {
+        "WarningBrush": {"token": "danger.fg", "role": "Warning text (was a fixed salmon red)"}
+      },
+      "solids": {
+        "MainBackgourndBrush": {"token": "bg.canvas", "role": "Window background (was a blue radial gradient; the key keeps Playnite's spelling)"},
+        "OverlayMenuBackgroundBrush": {"token": "bg.surface", "role": "Menus and dialogs (was a blue gradient)"}
+      },
+      "gradients": {
+        "TopBarBackgroundBrush": {"token": "bg.surface", "from_alpha": 255, "to_alpha": 204, "role": "Top bar over the background art (same geometry as the original)"},
+        "BottomBarBackgroundBrush": {"token": "bg.surface", "from_alpha": 255, "to_alpha": 204, "role": "Bottom bar over the background art"},
+        "GameDetailsBackgroundBrush": {"token": "bg.canvas", "from_alpha": 0, "to_alpha": 238, "role": "Game details panel fading in over the art"}
+      },
+      "keep_literal": {
+        "BlackColor": "unchanged: pure black, used only for the shadow under the game title",
+        "WhiteColor": "unchanged: pure white, not used by any Default Fullscreen style"
+      },
+      "gradients_replaced": {
+        "MainBackgourndBrush": "solid bg.canvas (was a blue radial gradient)",
+        "OverlayMenuBackgroundBrush": "solid bg.surface (was a blue gradient)",
+        "TopBarBackgroundBrush": "bg.surface fading to 80% (was a blue gradient)",
+        "BottomBarBackgroundBrush": "bg.surface fading to 80% (was a blue gradient)",
+        "GameDetailsBackgroundBrush": "bg.canvas from clear to 93% (was a blue gradient)"
+      },
+      "added": {
+        "FlatcapDangerBrush": {"token": "danger.fg", "role": "Critical battery icon (was Red)"},
+        "FlatcapScrimBrush": {"token": "bg.canvas", "alpha": 170, "role": "Dimmed layer behind selection menus and over uninstalled covers (was #AA000000)"}
+      }
     }
   }
 }

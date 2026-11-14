@@ -9,14 +9,21 @@ The check is deterministic and runs offline. In this build:
 <!-- build:static -->
 | Check | Result in this build |
 | :--- | :--- |
-| Upstream files vendored and unchanged | 15 files match `SHA256SUMS` |
+| Upstream files vendored and unchanged | 52 files match `SHA256SUMS` |
 | Patches applied to upstream files | 25 replacements in 13 files, each matched the expected number of times |
 | Shipped files per theme | 16 (Constants.xaml, CustomControls/SidebarItem.xaml, CustomControls/TopPanelItem.xaml, DefaultControls/DataGrid.xaml, DefaultControls/ListBox.xaml, DefaultControls/ProgressBar.xaml, DerivedStyles/DetailsHyperlink.xaml, DerivedStyles/GridViewItemTemplate.xaml, DerivedStyles/PlayButton.xaml, LICENSE.txt, Media.xaml, Views/DetailsViewGameOverview.xaml, Views/GridViewGameOverview.xaml, Views/SearchView.xaml, Views/TopPanel.xaml, theme.yaml) |
 | Color keys mapped to tokens | 15 colors, 8 brushes, 10 added, 2 gradients replaced |
 | Color literals outside `Constants.xaml` in shipped files | none |
-| Contrast targets | 64 met (4 report-only rows) |
+| Contrast targets (Desktop) | 64 met (4 report-only rows) |
 | Theme ids | unique, not built-in, letters, digits and underscores |
 | `ThemeApiVersion` | 2.0.0 (loadable by Desktop API 2.10.0: same major, not newer) |
+| **Fullscreen** upstream files vendored and unchanged | 37 files match `SHA256SUMS` |
+| Fullscreen patches | 21 replacements in 10 files, each matched the expected number of times |
+| Fullscreen shipped files | 13 (Constants.xaml, DefaultControls/CheckBox.xaml, DefaultControls/ComboBox.xaml, DefaultControls/ScrollViewer.xaml, DefaultControls/Slider.xaml, DerivedStyles/ListGameItemTemplate.xaml, LICENSE.txt, Views/GameDetails.xaml, Views/GameMenu.xaml, Views/ItemSelection.xaml, Views/Main.xaml, Views/SettingsMenus.xaml, theme.yaml) |
+| Fullscreen color literals outside `Constants.xaml` | none |
+| Fullscreen text sizes | none under 18 px (FontSize, HtmlFontSize and the FontSize constants are checked) |
+| Fullscreen contrast targets (text, states, focus outlines) | 53 met (2 report-only rows) |
+| Fullscreen `ThemeApiVersion` | 2.0.0 (loadable by Fullscreen API 2.10.0: same major, not newer) |
 <!-- /build:static -->
 
 `--check` also verifies, for each of the two themes, that the unpacked folder and the `.pthm` match what the build generates, that `theme.yaml` has the fields Playnite needs (a valid id, a loadable `ThemeApiVersion`, a version equal to the core's), that every XAML file is well formed, that no `x:Key` is duplicated, that no shipped file contains a color literal or a named color, that every `Flatcap*` resource a file uses is defined in that theme's `Constants.xaml`, that the README has its required sections, that the screenshots exist and are 1440x900 PNG files without metadata chunks, and that no private path, IP address or host name is committed.
@@ -30,6 +37,7 @@ The check is deterministic and runs offline. In this build:
 | :--- | :--- | ---: | :--- |
 | `dist/Flatcap_Slate_Desktop_2_0_0.pthm` | `theme.yaml`, `Constants.xaml`, `CustomControls/SidebarItem.xaml`, `CustomControls/TopPanelItem.xaml`, `DefaultControls/DataGrid.xaml`, `DefaultControls/ListBox.xaml`, `DefaultControls/ProgressBar.xaml`, `DerivedStyles/DetailsHyperlink.xaml`, `DerivedStyles/GridViewItemTemplate.xaml`, `DerivedStyles/PlayButton.xaml`, `LICENSE.txt`, `Media.xaml`, `Views/DetailsViewGameOverview.xaml`, `Views/GridViewGameOverview.xaml`, `Views/SearchView.xaml`, `Views/TopPanel.xaml` | 122360 | 2026-01-01 (fixed) |
 | `dist/Flatcap_Daylight_Desktop_2_0_0.pthm` | `theme.yaml`, `Constants.xaml`, `CustomControls/SidebarItem.xaml`, `CustomControls/TopPanelItem.xaml`, `DefaultControls/DataGrid.xaml`, `DefaultControls/ListBox.xaml`, `DefaultControls/ProgressBar.xaml`, `DerivedStyles/DetailsHyperlink.xaml`, `DerivedStyles/GridViewItemTemplate.xaml`, `DerivedStyles/PlayButton.xaml`, `LICENSE.txt`, `Media.xaml`, `Views/DetailsViewGameOverview.xaml`, `Views/GridViewGameOverview.xaml`, `Views/SearchView.xaml`, `Views/TopPanel.xaml` | 122369 | 2026-01-01 (fixed) |
+| `dist/Flatcap_Slate_Fullscreen_2_0_0.pthm` | `theme.yaml`, `Constants.xaml`, `DefaultControls/CheckBox.xaml`, `DefaultControls/ComboBox.xaml`, `DefaultControls/ScrollViewer.xaml`, `DefaultControls/Slider.xaml`, `DerivedStyles/ListGameItemTemplate.xaml`, `LICENSE.txt`, `Views/GameDetails.xaml`, `Views/GameMenu.xaml`, `Views/ItemSelection.xaml`, `Views/Main.xaml`, `Views/SettingsMenus.xaml` | 75743 | 2026-01-01 (fixed) |
 <!-- /build:pthmcheck -->
 
 The `.pthm` is a ZIP with `theme.yaml` first, written with fixed timestamps (2026-01-01), member order, compression level and attributes so it does not change from run to run. `--check` compares its members, content and ZIP metadata with a local rebuild.
@@ -55,6 +63,9 @@ Result: for both themes, Playnite started, showed the theme (palette, fonts, con
 | `images/desktop-slate-details.png` | 1440x900 | `78867ba47aac78dfb73dfd9a31baf440e638407c7f1ebd85e252a85e3aa6f5c5` |
 | `images/desktop-daylight-grid.png` | 1440x900 | `e51bcb11d9655fd1f1a7bcfee55db281331240bde0f9c751de8e993e12cd3caf` |
 | `images/desktop-daylight-details.png` | 1440x900 | `118258846710d6165ff79f41d268e4c679741e4ed4043b88804f686d59a29361` |
+| `images/fullscreen-slate-grid.png` | 1920x1080 | `50dd19f79011b1353af461d37f33c0ff84147e8e6312cc5ee5abee57ce2488f7` |
+| `images/fullscreen-slate-details.png` | 1920x1080 | `585c762f9e3914c68715dddfe218f41d1811e3ac9fcef6b9e68c830db36c8de6` |
+| `images/fullscreen-slate-menu.png` | 1920x1080 | `cd5e806fe3be75420f6604ac99bc7ae13517814fccfbebe647ccf6711b8761ae` |
 <!-- /build:images -->
 
 Observed while reviewing:
@@ -77,10 +88,29 @@ The run above was repeated after the hover/focus contrast fix, with a **new** po
 ### What was not tested
 
 - **Installing the `.pthm` through Playnite's own flow.** Passing the file as a command-line argument when starting the portable copy did not install it (no error was logged and the theme did not appear). The package contents were unzipped by hand into `Themes/Desktop/`, which is the layout Playnite's installer creates. The Toolbox pack comparison above supports that the package has the layout Playnite expects, but the install flow itself is **NOT TESTED**.
-- Any Playnite version other than 10.64; Fullscreen mode; the list view, filter panel, menus, dialogs and settings windows; high DPI; keyboard-only use; screen readers; Windows High Contrast.
+- Any Playnite version other than 10.64; the Desktop list view, filter panel, menus, dialogs and settings windows; high DPI; keyboard-only use; screen readers; Windows High Contrast.
 - The outbound request Playnite makes for its update check was not blocked in the test.
 - The privacy list kept in `.private-patterns` is local and not versioned, so what it matches is **not** checked by anyone else; the committed patterns are generic (RFC 1918 and CGNAT ranges, `*.ts.net`, Linux home and mount paths, Windows user-profile paths, UNC paths, non-noreply e-mail addresses).
 
 ## 4. Fullscreen
 
-Not done. Flatcap Slate for Fullscreen would need its own set of Default files (a different theme tree and API) and a separate real-run pass. It was left out of this release for time; it is not a decision of the maintainer.
+Flatcap Slate (Fullscreen) was run in a **new isolated portable Playnite 10.64** (same official archive, SHA-256 `a4538628d6a0f49cd337c8a8640294849d736217bf4d2d7c99c1eb1b68428611`) with its own named-pipe endpoint and the demo library of 12 invented games (`qa/seed/`). The three `.pthm` were unzipped by hand into `Themes/` (as in section 3) and Playnite was started in Fullscreen mode with `Flatcap_Slate_Fullscreen` selected. It loaded with the theme applied.
+
+**Observed live.** Keys were sent to the Fullscreen window (arrows, A, X, Esc and others) and the screen was captured: the grid view, the details view, the game menu, the main menu and the filter screen. The grid, details and game-menu captures were looked at with an image viewer:
+
+- Grid: the dark Slate surfaces, the top filter row, the clock and the bottom button legend are readable; the focused cover has a light-blue outline and glow that is clearly visible against the neighbours.
+- Details: title, metadata, description and link are readable; the focused button (Play) has a visible light-blue outline, the other one a thin neutral border. The empty *Platform* value is data the demo game does not have.
+- Game menu: the focused item (Play) has a visible light-blue outline.
+- No personal data and no other window is visible; the only text from the machine is the clock.
+
+The main menu and filter screens were captured but **not reviewed by eye**; nothing is claimed about them beyond that they opened.
+
+**Screenshots.** The captures are 2560x1440 and the committed `images/fullscreen-slate-*.png` are those captures scaled to 1920x1080 (exactly 0.75, Lanczos); they are not native 1920x1080 renders.
+
+**Not tested.** A real game controller (the keyboard was used through window messages, so button prompts and controller navigation were not exercised), a TV or couch-distance reading, high DPI, other resolutions, other Fullscreen views and dialogs, and the install flow through Playnite itself. The contrast figures above come from the generated XAML, not from the live capture.
+
+## 5. Maintainer decisions
+
+- The history of this repository is kept as it is and internal names are not documented.
+- Desktop `.pthm` packages and `ThemeApiVersion: 2.0.0` are kept.
+- Fullscreen is developed (this section); a Daylight Fullscreen theme is a technical decision left out (see README).
