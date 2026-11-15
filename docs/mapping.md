@@ -351,6 +351,11 @@ Kept as in Playnite: `BlackColor` (unchanged: pure black, used only for the shad
 | `DefaultControls/ComboBox.xaml` | `<Setter Property="Foreground" Value="Black" />` -> `<Setter Property="Foreground" Value="{DynamicResource TextBrush}" />` | 4 | focused or hovered combo box and combo box item drew Black text on a dark fill (about 1.1:1 in the Default theme); the text keeps the main text color |
 | `DefaultControls/ScrollViewer.xaml` | the `Thumb` style's `Background`: `{DynamicResource ControlBackgroundBrush}` -> `{DynamicResource SelectionLightBrush}` | 1 | the scroll bar thumb had the contrast of its own track (1.2:1); it takes the control border color (3:1) |
 | `DefaultControls/Slider.xaml` | `<Border Height="6" Background="{DynamicResource ControlBackgroundBrush}" />` -> `<Border Height="6" Background="{DynamicResource SelectionLightBrush}" />` | 1 | the unfilled track of a slider had the contrast of the fill behind it (1.2:1); it takes the control border color (3:1) |
+| `CustomControls/FilterPresetSelector.xaml` | the matching element is replaced by `<Border x:Name="MainBorder" Background="{TemplateBinding Background}" BorderBrush="Transparent" BorderThickness="0,0,0,3" Margin="10,0,10,0">` | 1 | the template border gets a name and a transparent 3 px bottom edge (reserved at rest, so nothing moves when it is lit) |
+| `CustomControls/FilterPresetSelector.xaml` | adds after the matched trigger setter: `<Setter Property="BorderBrush" Value="{DynamicResource SelectionBrush}" TargetName="MainBorder" />` | 1 | a focused preset in the top bar differed from the others only by its text color (1.38:1); it also gets the accent underline (same brush as every focus outline) |
+| `Views/FiltersView.xaml` | adds after the matched trigger setter: `<Setter Property="FontWeight" Value="Bold" /> <Setter Property="BorderThickness" Value="0,0,0,2" /> <Setter Property="BorderBrush" Value="{DynamicResource SelectionLightBrush}" />` | 1 | a filter with an active selection (a filter-panel row) differed from the others only by its text color (1.20:1); it also becomes bold and gets a 2 px underline (3:1) |
+| `Views/FiltersView.xaml` | adds after the matched trigger setter: `<Setter Property="FontWeight" Value="Bold" />` | 1 | the same for the filter-panel buttons that carry an active selection: bold in addition to the color |
+| `DefaultControls/ToggleButton.xaml` | adds after the matched trigger setter: `<Setter Property="FontWeight" Value="Bold" /> <Setter Property="BorderThickness" Value="2" />` | 1 | a checked toggle differed from an unchecked one only by its text color (1.38:1); it also becomes bold and gets a 2 px outline in the control border color (3:1) |
 <!-- /build:fs-patches -->
 
 The patches fall in four groups: fixed white, red and black colors become resources; the dimmed layers (`#AA000000`) become the scrim brush; the **focus-legibility fixes** (the combo box drew `Black` text on its dark focused and hovered fill, about 1.1:1 in the Default theme); and the **non-text contrast fixes** (the check box outline, the scroll bar thumb and the unfilled slider track used the fill of the control behind them, 1.2:1, and take the control border color, 3:1). The description text is raised from 16 to 20 px, the only text under 18 px in the Default Fullscreen theme.
@@ -361,12 +366,15 @@ The patches fall in four groups: fixed white, red and black colors become resour
 | Shipped file | In the package | Origin |
 | :--- | :--- | :--- |
 | `Constants.xaml` | yes | generated from the tokens, on the upstream file |
+| `CustomControls/FilterPresetSelector.xaml` | yes | upstream file with the patches above |
 | `DefaultControls/CheckBox.xaml` | yes | upstream file with the patches above |
 | `DefaultControls/ComboBox.xaml` | yes | upstream file with the patches above |
 | `DefaultControls/ScrollViewer.xaml` | yes | upstream file with the patches above |
 | `DefaultControls/Slider.xaml` | yes | upstream file with the patches above |
+| `DefaultControls/ToggleButton.xaml` | yes | upstream file with the patches above |
 | `DerivedStyles/ListGameItemTemplate.xaml` | yes | upstream file with the patches above |
 | `LICENSE.txt` | yes | generated: MIT license of this repository and of Playnite |
+| `Views/FiltersView.xaml` | yes | upstream file with the patches above |
 | `Views/GameDetails.xaml` | yes | upstream file with the patches above |
 | `Views/GameMenu.xaml` | yes | upstream file with the patches above |
 | `Views/ItemSelection.xaml` | yes | upstream file with the patches above |
@@ -384,19 +392,22 @@ The patches fall in four groups: fixed white, red and black colors become resour
 | Main text | TextBrush (labels, titles, description text) on OverlayMenuBackgroundBrush (menus and dialogs) (worst case `#20252B`) | 11.07 | 7 | pass |
 | Main text | TextBrush (labels, titles, description text) on ControlBackgroundBrush (text boxes and filter fields) (worst case `#292F36`) | 9.70 | 7 | pass |
 | Main text | TextBrush (labels, titles, description text) on ControlBackgroundDarkBrush (focused or hovered controls, game titles on covers, tooltips) (worst case `#191D22`) | 12.15 | 7 | pass |
-| Main text | TextBrush (labels, titles, description text) on TopBarBackgroundBrush (top and bottom bars, over the background art) (worst case `#4D5155`) | 5.77 | 4.5 | pass |
+| Main text | TextBrush (labels, titles, description text) on TopBarBackgroundBrush (top bar, over the background art) (worst case `#4D5155`) | 5.77 | 4.5 | pass |
+| Main text | TextBrush (labels, titles, description text) on BottomBarBackgroundBrush (bottom bar (button legend), over the art) (worst case `#4D5155`) | 5.77 | 4.5 | pass |
 | Main text | TextBrush (labels, titles, description text) on GameDetailsBackgroundBrush (game details panel, over the art) (worst case `#282C31`) | 10.07 | 4.5 | pass |
 | Accent | GlyphBrush (accent: description links, icons, hover text) on MainBackgourndBrush (main background) (worst case `#191D22`) | 8.80 | 4.5 | pass |
 | Accent | GlyphBrush (accent: description links, icons, hover text) on OverlayMenuBackgroundBrush (menus and dialogs) (worst case `#20252B`) | 8.02 | 4.5 | pass |
 | Accent | GlyphBrush (accent: description links, icons, hover text) on ControlBackgroundBrush (text boxes and filter fields) (worst case `#292F36`) | 7.02 | 4.5 | pass |
 | Accent | GlyphBrush (accent: description links, icons, hover text) on ControlBackgroundDarkBrush (focused or hovered controls, game titles on covers, tooltips) (worst case `#191D22`) | 8.80 | 4.5 | pass |
-| Accent | GlyphBrush (accent: description links, icons, hover text) on TopBarBackgroundBrush (top and bottom bars, over the background art) (worst case `#4D5155`) | 4.18 | 3 | pass |
+| Accent | GlyphBrush (accent: description links, icons, hover text) on TopBarBackgroundBrush (top bar, over the background art) (worst case `#4D5155`) | 4.18 | 3 | pass |
+| Accent | GlyphBrush (accent: description links, icons, hover text) on BottomBarBackgroundBrush (bottom bar (button legend), over the art) (worst case `#4D5155`) | 4.18 | 3 | pass |
 | Accent | GlyphBrush (accent: description links, icons, hover text) on GameDetailsBackgroundBrush (game details panel, over the art) (worst case `#282C31`) | 7.29 | 4.5 | pass |
 | Light accent | GlyphLightBrush (light accent: icons, hover text in lists) on MainBackgourndBrush (main background) (worst case `#191D22`) | 10.12 | 4.5 | pass |
 | Light accent | GlyphLightBrush (light accent: icons, hover text in lists) on OverlayMenuBackgroundBrush (menus and dialogs) (worst case `#20252B`) | 9.22 | 4.5 | pass |
 | Light accent | GlyphLightBrush (light accent: icons, hover text in lists) on ControlBackgroundBrush (text boxes and filter fields) (worst case `#292F36`) | 8.07 | 4.5 | pass |
 | Light accent | GlyphLightBrush (light accent: icons, hover text in lists) on ControlBackgroundDarkBrush (focused or hovered controls, game titles on covers, tooltips) (worst case `#191D22`) | 10.12 | 4.5 | pass |
-| Light accent | GlyphLightBrush (light accent: icons, hover text in lists) on TopBarBackgroundBrush (top and bottom bars, over the background art) (worst case `#4D5155`) | 4.81 | 3 | pass |
+| Light accent | GlyphLightBrush (light accent: icons, hover text in lists) on TopBarBackgroundBrush (top bar, over the background art) (worst case `#4D5155`) | 4.81 | 3 | pass |
+| Light accent | GlyphLightBrush (light accent: icons, hover text in lists) on BottomBarBackgroundBrush (bottom bar (button legend), over the art) (worst case `#4D5155`) | 4.81 | 3 | pass |
 | Light accent | GlyphLightBrush (light accent: icons, hover text in lists) on GameDetailsBackgroundBrush (game details panel, over the art) (worst case `#282C31`) | 8.38 | 3 | pass |
 | Control borders | SelectionLightBrush (outlines of fields and check boxes, scroll thumb, slider track) on MainBackgourndBrush (main background) (worst case `#191D22`) | 5.41 | 3 | pass |
 | Control borders | SelectionLightBrush (outlines of fields and check boxes, scroll thumb, slider track) on OverlayMenuBackgroundBrush (menus and dialogs) (worst case `#20252B`) | 4.93 | 3 | pass |
@@ -406,7 +417,7 @@ The patches fall in four groups: fixed white, red and black colors become resour
 | Status | WarningBrush (warning text) on OverlayMenuBackgroundBrush (menus and dialogs) (worst case `#20252B`) | 7.20 | 4.5 | pass |
 | Status | WarningBrush (warning text) on ControlBackgroundBrush (text boxes and filter fields) (worst case `#292F36`) | 6.31 | 4.5 | pass |
 | Status | WarningBrush (warning text) on ControlBackgroundDarkBrush (focused or hovered controls, game titles on covers, tooltips) (worst case `#191D22`) | 7.91 | 4.5 | pass |
-| Status | FlatcapDangerBrush (critical battery icon) on TopBarBackgroundBrush (top and bottom bars, over the background art) (worst case `#4D5155`) | 3.76 | 3 | pass |
+| Status | FlatcapDangerBrush (critical battery icon) on TopBarBackgroundBrush (top bar, over the background art) (worst case `#4D5155`) | 3.76 | 3 | pass |
 | Disabled | TextBrushDark (disabled controls (WCAG exempts inactive components; Playnite also draws them at 50% opacity); report only) on MainBackgourndBrush (main background) (worst case `#191D22`) | 4.77 | - | report only |
 | Disabled | TextBrushDark (disabled controls (WCAG exempts inactive components; Playnite also draws them at 50% opacity); report only) on OverlayMenuBackgroundBrush (menus and dialogs) (worst case `#20252B`) | 4.35 | - | report only |
 | States | Button, keyboard focus: TextBrush on ControlBackgroundDarkBrush (read from DefaultControls/Button.xaml) (worst case `#191D22`) | 12.15 | 4.5 | pass |
@@ -434,7 +445,12 @@ The patches fall in four groups: fixed white, red and black colors become resour
 | Focus outline | Focus outline of the filter item (SelectionBrush), worst surface (read from Views/FiltersView.xaml) (worst case `#4D5155`) | 4.18 | 3 | pass |
 | Focus outline | Focus outline of the settings list item (SelectionBrush), worst surface (read from Views/SettingsMenus.xaml) (worst case `#4D5155`) | 4.18 | 3 | pass |
 | Focus outline | Focus outline of the top bar button (GlyphBrush), worst surface (read from DerivedStyles/ButtonTopMenu.xaml) (worst case `#4D5155`) | 4.18 | 3 | pass |
+| Focus outline | Focus outline of the top bar preset (SelectionBrush), worst surface (read from CustomControls/FilterPresetSelector.xaml) (worst case `#4D5155`) | 4.18 | 3 | pass |
 | Focus outline | Focus outline of the game cover (SelectionBrush), worst surface (read from DerivedStyles/ListGameItemStyle.xaml) (worst case `#4D5155`) | 4.18 | 3 | pass |
+| State vs state | Top bar preset, keyboard focus: GlyphBrush against the resting TextBrush (the color alone is not enough; the state also sets an accent underline), read from CustomControls/FilterPresetSelector.xaml (resting color `#D5DBE3`) | 1.38 | 3 or a cue | pass: has a non-color cue |
+| State vs state | Filter row with an active selection: GlyphLightBrush against the resting TextBrush (the color alone is not enough; the state also sets FontWeight), read from Views/FiltersView.xaml (resting color `#D5DBE3`) | 1.20 | 3 or a cue | pass: has a non-color cue |
+| State vs state | Filter button with an active selection: GlyphLightBrush against the resting TextBrush (the color alone is not enough; the state also sets FontWeight), read from Views/FiltersView.xaml (resting color `#D5DBE3`) | 1.20 | 3 or a cue | pass: has a non-color cue |
+| State vs state | Toggle button, checked: SelectionBrush against the resting TextBrush (the color alone is not enough; the state also sets FontWeight), read from DefaultControls/ToggleButton.xaml (resting color `#D5DBE3`) | 1.20 | 3 or a cue | pass: has a non-color cue |
 <!-- /build:fs-contrast -->
 
 ## Not mapped

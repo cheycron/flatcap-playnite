@@ -38,6 +38,8 @@
     "root": "upstream/playnite-10.64/Desktop/Default",
     "fullscreen_root": "upstream/playnite-10.64/Fullscreen/Default",
     "license": "LICENSES/Playnite-MIT.txt",
+    "tag": "10.64",
+    "commit": "e2e6efcda311fea38fcd92f61c8ca90811d97f28",
     "files": {}
   },
   "constants": {

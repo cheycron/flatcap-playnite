@@ -184,7 +184,7 @@ def upstream_errors(p: dict) -> list[str]:
             errs.append(f"upstream file missing: upstream/playnite-10.64/{name}")
         elif hashlib.sha256(f.read_bytes()).hexdigest() != h:
             errs.append(f"upstream file changed: upstream/playnite-10.64/{name} no longer matches SHA256SUMS (the patches are written against Playnite 10.64's file)")
-    on_disk = {x.relative_to(base).as_posix() for x in base.rglob("*") if x.is_file() and x.name != "SHA256SUMS"}
+    on_disk = {x.relative_to(base).as_posix() for x in base.rglob("*") if x.is_file() and x.name not in ("SHA256SUMS", "SOURCE.txt")}
     for name in sorted(on_disk - set(sums)):
         errs.append(f"upstream file without a checksum: upstream/playnite-10.64/{name}")
     for kind, patches in (("Desktop", PATCHES), ("Fullscreen", FS_PATCHES)):
@@ -192,9 +192,12 @@ def upstream_errors(p: dict) -> list[str]:
             if f"{kind}/Default/{rel}" not in sums:
                 errs.append(f"upstream/playnite-10.64/{kind}/Default/{rel} is patched but not listed in SHA256SUMS")
         # every file a state contract reads must be vendored too
-        for rel in {f for _, f, *_ in (STATE_CONTRACTS if kind == "Desktop" else FS_STATES)} | {f for _, f, *_ in (() if kind == "Desktop" else FS_FOCUS)}:
+        for rel in {f for _, f, *_ in (STATE_CONTRACTS if kind == "Desktop" else FS_STATES)} | {f for _, f, *_ in (() if kind == "Desktop" else FS_FOCUS + FS_CUES)}:
             if f"{kind}/Default/{rel}" not in sums:
                 errs.append(f"upstream/playnite-10.64/{kind}/Default/{rel} is read by a contrast state but not listed in SHA256SUMS")
+    src = base / "SOURCE.txt"
+    if not src.exists() or p["upstream"]["commit"] not in src.read_text(encoding="utf-8") or not re.fullmatch(r"[0-9a-f]{40}", p["upstream"]["commit"]):
+        errs.append(f"upstream/playnite-10.64/SOURCE.txt is missing or does not name the commit of Playnite's tag {p['upstream']['tag']} ({p['upstream']['commit']})")
     lic = ROOT / p["upstream"]["license"]
     if not lic.exists() or "Josef Nemec" not in lic.read_text(encoding="utf-8") or "MIT License" not in lic.read_text(encoding="utf-8"):
         errs.append(f"{p['upstream']['license']}: the Playnite MIT license text (Josef Nemec) is missing")
@@ -407,6 +410,27 @@ FS_PATCHES: list[tuple[str, list[tuple[str, str, int, str]]]] = [
     ("DefaultControls/Slider.xaml", [
         (lit('<Border Height="6" Background="{DynamicResource ControlBackgroundBrush}" />'), '<Border Height="6" Background="{DynamicResource SelectionLightBrush}" />', 1,
          "the unfilled track of a slider had the contrast of the fill behind it (1.2:1); it takes the control border color (3:1)")]),
+    # States the Default theme shows by color alone, with a color that is 1.2 to 1.4:1 from the resting text (a state that cannot be told apart by
+    # luminance, and not at all by someone who does not see color): each gets a signal that is not a color (a 3 px underline, or a bolder weight).
+    ("CustomControls/FilterPresetSelector.xaml", [
+        (r'<Border Background="\{TemplateBinding Background\}"\s+Margin="10,0,10,0">',
+         '<Border x:Name="MainBorder" Background="{TemplateBinding Background}" BorderBrush="Transparent" BorderThickness="0,0,0,3"\n                            Margin="10,0,10,0">', 1,
+         "the template border gets a name and a transparent 3 px bottom edge (reserved at rest, so nothing moves when it is lit)"),
+        (r'(<Trigger Property="IsFocused" Value="True">\s*<Setter Property="Foreground" Value="\{DynamicResource GlyphBrush\}" />)',
+         '\\1\n                            <Setter Property="BorderBrush" Value="{DynamicResource SelectionBrush}" TargetName="MainBorder" />', 1,
+         "a focused preset in the top bar differed from the others only by its text color (1.38:1); it also gets the accent underline (same brush as every focus outline)")]),
+    ("Views/FiltersView.xaml", [
+        (r'(<Trigger Property="Tag" Value="\{StaticResource True\}">\s*<Setter Property="Foreground" Value="\{DynamicResource GlyphLightBrush\}" />)(\s*<Setter Property="HorizontalContentAlignment" Value="Stretch" />)',
+         '\\1\n                            <Setter Property="FontWeight" Value="Bold" />\n                            <Setter Property="BorderThickness" Value="0,0,0,2" />\n'
+         '                            <Setter Property="BorderBrush" Value="{DynamicResource SelectionLightBrush}" />\\2', 1,
+         "a filter with an active selection (a filter-panel row) differed from the others only by its text color (1.20:1); it also becomes bold and gets a 2 px underline (3:1)"),
+        (r'(<Trigger Property="Tag" Value="\{StaticResource True\}">\s*<Setter Property="Foreground" Value="\{DynamicResource GlyphLightBrush\}" />)(\s*</Trigger>\s*</Style\.Triggers>)',
+         '\\1\n                <Setter Property="FontWeight" Value="Bold" />\\2', 1,
+         "the same for the filter-panel buttons that carry an active selection: bold in addition to the color")]),
+    ("DefaultControls/ToggleButton.xaml", [
+        (r'(<Trigger Property="IsChecked" Value="True">\s*<Setter Property="Foreground" Value="\{DynamicResource SelectionBrush\}" />)',
+         '\\1\n                            <Setter Property="FontWeight" Value="Bold" />\n                            <Setter Property="BorderThickness" Value="2" />', 1,
+         "a checked toggle differed from an unchecked one only by its text color (1.38:1); it also becomes bold and gets a 2 px outline in the control border color (3:1)")]),
 ]
 
 
@@ -667,9 +691,12 @@ def fs_size_errors(d: Path, text: str, f: Path | None = None) -> list[str]:
     """Fullscreen is read from a couch: no text under FS_MIN_TEXT px. Looks at FontSize and HtmlFontSize literals and at the FontSize constants."""
     rel = (f or (d / "Constants.xaml")).relative_to(ROOT)
     errs = []
-    for m in re.finditer(r'\b(?:Html)?FontSize="(\d+(?:\.\d+)?)"', text):
-        if float(m.group(1)) < FS_MIN_TEXT:
-            errs.append(f"{rel}: text size {m.group(1)} px is under the {FS_MIN_TEXT} px minimum of a Fullscreen theme")
+    # the one exemption: the decorative dot (U+25CF) under the selected top bar preset is a shape, not text anyone reads
+    text = re.sub(r'<TextBlock\b[^>]*\bText="&#x25CF;"[^>]*>', "", text)
+    for m in re.finditer(r'\b(?:Html)?FontSize="(\d+(?:\.\d+)?)"|<Setter\s+Property="(?:Html)?FontSize"\s+Value="(\d+(?:\.\d+)?)"', text):
+        size = m.group(1) or m.group(2)
+        if float(size) < FS_MIN_TEXT:
+            errs.append(f"{rel}: text size {size} px is under the {FS_MIN_TEXT} px minimum of a Fullscreen theme")
     for m in re.finditer(r'<sys:Double x:Key="(FontSize\w*)">(\d+(?:\.\d+)?)</sys:Double>', text):
         if float(m.group(2)) < FS_MIN_TEXT:
             errs.append(f"{rel}: {m.group(1)} is {m.group(2)} px, under the {FS_MIN_TEXT} px minimum of a Fullscreen theme")
@@ -897,18 +924,22 @@ def contrast_errors(theme: dict, p: dict) -> list[str]:
 # the game details panel) lies over the game's background art: it is checked over a pure white and a pure black picture, the worst cases.
 FS_SURFACES = [("MainBackgourndBrush", "main background"), ("OverlayMenuBackgroundBrush", "menus and dialogs"),
                ("ControlBackgroundBrush", "text boxes and filter fields"), ("ControlBackgroundDarkBrush", "focused or hovered controls, game titles on covers, tooltips"),
-               ("TopBarBackgroundBrush", "top and bottom bars, over the background art"), ("GameDetailsBackgroundBrush", "game details panel, over the art")]
+               ("TopBarBackgroundBrush", "top bar, over the background art"), ("BottomBarBackgroundBrush", "bottom bar (button legend), over the art"),
+               ("GameDetailsBackgroundBrush", "game details panel, over the art")]
 # (foreground resource, what it draws, [(surface resource, target, group)], category)
 FS_PAIRS = [
     ("TextBrush", "labels, titles, description text",
      [("MainBackgourndBrush", 7.0, "text"), ("OverlayMenuBackgroundBrush", 7.0, "text"), ("ControlBackgroundBrush", 7.0, "text"),
-      ("ControlBackgroundDarkBrush", 7.0, "text"), ("TopBarBackgroundBrush", 4.5, "text"), ("GameDetailsBackgroundBrush", 4.5, "text")], "Main text"),
+      ("ControlBackgroundDarkBrush", 7.0, "text"), ("TopBarBackgroundBrush", 4.5, "text"), ("BottomBarBackgroundBrush", 4.5, "text"),
+      ("GameDetailsBackgroundBrush", 4.5, "text")], "Main text"),
     ("GlyphBrush", "accent: description links, icons, hover text",
      [("MainBackgourndBrush", 4.5, "text"), ("OverlayMenuBackgroundBrush", 4.5, "text"), ("ControlBackgroundBrush", 4.5, "text"),
-      ("ControlBackgroundDarkBrush", 4.5, "text"), ("TopBarBackgroundBrush", 3.0, "outline"), ("GameDetailsBackgroundBrush", 4.5, "text")], "Accent"),
+      ("ControlBackgroundDarkBrush", 4.5, "text"), ("TopBarBackgroundBrush", 3.0, "outline"), ("BottomBarBackgroundBrush", 3.0, "outline"),
+      ("GameDetailsBackgroundBrush", 4.5, "text")], "Accent"),
     ("GlyphLightBrush", "light accent: icons, hover text in lists",
      [("MainBackgourndBrush", 4.5, "text"), ("OverlayMenuBackgroundBrush", 4.5, "text"), ("ControlBackgroundBrush", 4.5, "text"),
-      ("ControlBackgroundDarkBrush", 4.5, "text"), ("TopBarBackgroundBrush", 3.0, "outline"), ("GameDetailsBackgroundBrush", 3.0, "outline")], "Light accent"),
+      ("ControlBackgroundDarkBrush", 4.5, "text"), ("TopBarBackgroundBrush", 3.0, "outline"), ("BottomBarBackgroundBrush", 3.0, "outline"),
+      ("GameDetailsBackgroundBrush", 3.0, "outline")], "Light accent"),
     ("SelectionLightBrush", "outlines of fields and check boxes, scroll thumb, slider track",
      [("MainBackgourndBrush", 3.0, "outline"), ("OverlayMenuBackgroundBrush", 3.0, "outline"), ("ControlBackgroundBrush", 3.0, "outline"),
       ("ControlBackgroundDarkBrush", 3.0, "outline")], "Control borders"),
@@ -969,7 +1000,31 @@ FS_FOCUS = [
     ("Settings list item", "Views/SettingsMenus.xaml", _BF, _VIS.format(n="BorderFocus")),
     ("Top bar button", "DerivedStyles/ButtonTopMenu.xaml", r'<Trigger Property="IsFocused" Value="True">\s*<Setter Property="BorderBrush" Value="' + _BR + r'" TargetName="MainBorder"',
      r'<Border Background="\{TemplateBinding Background\}"\s*BorderBrush="Transparent" BorderThickness="3"\s*x:Name="MainBorder"'),
+    ("Top bar preset", "CustomControls/FilterPresetSelector.xaml", r'<Trigger Property="IsFocused" Value="True">\s*<Setter Property="Foreground"[^>]*/>\s*<Setter Property="BorderBrush" Value="' + _BR + r'" TargetName="MainBorder"',
+     r'<Border x:Name="MainBorder" Background="\{TemplateBinding Background\}" BorderBrush="Transparent" BorderThickness="0,0,0,3"'),
     ("Game cover", "DerivedStyles/ListGameItemStyle.xaml", r'x:Name="MainBorder" BorderThickness="5" BorderBrush="' + _BR + '"', _VIS.format(n="MainBorder")),
+]
+
+
+# States that Default shows by a change of text color alone. A color that is under 3:1 from the resting one cannot be told apart by luminance, and not
+# at all without color vision, so such a state must also carry a signal that is not a color. (label, file, regex of the resting foreground (group 1),
+# regex of the trigger of the state (named group `body` = its setters)). Colors are read from the shipped file; a state whose color is 3:1 or more from
+# the resting one passes by contrast, any other must have one of the setters in NON_COLOR_CUE in its trigger.
+NON_COLOR_CUE = (r'<Setter Property="(?:FontWeight|FontStyle|TextDecorations|BorderThickness)"'
+                 r'|<Setter Property="BorderBrush"[^>]*TargetName="MainBorder"')  # a weight, a style, an underline or an outline
+FS_CUES = [
+    ("Top bar preset, keyboard focus", "CustomControls/FilterPresetSelector.xaml",
+     r'<Style x:Key="ItemFilterQuickPreset".*?<Setter Property="Foreground" Value="' + _BR + '"',
+     r'<ControlTemplate TargetType="CheckBoxEx">.*?<Trigger Property="IsFocused" Value="True">(?P<body>.*?)</Trigger>'),
+    ("Filter row with an active selection", "Views/FiltersView.xaml",
+     r'<Style x:Key="FilterPanelNagivationButton".*?<Setter Property="Foreground" Value="' + _BR + '"',
+     r'<Style x:Key="FilterPanelNagivationButton".*?<Trigger Property="Tag" Value="\{StaticResource True\}">(?P<body>.*?)</Trigger>'),
+    ("Filter button with an active selection", "Views/FiltersView.xaml",
+     r'<Style x:Key="FilterPanelButtonEx".*?<Setter Property="Foreground" Value="' + _BR + '"',
+     r'<Style x:Key="FilterPanelButtonEx".*?<Trigger Property="Tag" Value="\{StaticResource True\}">(?P<body>.*?)</Trigger>'),
+    ("Toggle button, checked", "DefaultControls/ToggleButton.xaml",
+     r'<Style TargetType="ToggleButton">.*?<Setter Property="Foreground" Value="' + _BR + '"',
+     r'<Trigger Property="IsChecked" Value="True">(?P<body>.*?)</Trigger>'),
 ]
 
 
@@ -1070,6 +1125,31 @@ def fs_rows_and_errors(theme: dict, p: dict) -> tuple[list[dict], list[str]]:
         r, bgc = min(worst(f, flats[k]) for f in fgs for k, _ in FS_SURFACES)
         out.append({"mode": "fullscreen", "label": f"Focus outline of the {label.lower()} ({b.group(1)}), worst surface (read from {rel})", "fg": fgs[0], "bg": bgc,
                     "target": 3.0, "group": "outline", "ratio": r, "cat": "Focus outline"})
+    for label, rel, rest_re, body_re in FS_CUES:
+        text = patched(p, rel, "Fullscreen") if rel in dict(FS_PATCHES) else upstream_text(p, rel, "Fullscreen")
+        rest, st = re.search(rest_re, text, re.S), re.search(body_re, text, re.S)
+        fgm = re.search(r'<Setter Property="Foreground" Value="' + _BR, st.group("body")) if st else None
+        if not rest or not st or not fgm:
+            errs.append(f"state '{label}' ({rel}): resting or state foreground resource not found")
+            continue
+        try:
+            rest_c = [pal[tok] for tok, _a in fs_brush_colors(p, rest.group(1))]
+            state_c = [pal[tok] for tok, _a in fs_brush_colors(p, fgm.group(1))]
+        except KeyError as e:
+            errs.append(f"state '{label}' ({rel}): {e}")
+            continue
+        r = min(C.contrast(C.parse(a), C.parse(b)) for a in state_c for b in rest_c)
+        cue = re.search(NON_COLOR_CUE, st.group("body"))
+        if r < 3.0 and not cue:
+            errs.append(f"state '{label}' ({rel}): {fgm.group(1)} differs from the resting {rest.group(1)} by color alone ({r:.2f}:1, under 3:1) and the state "
+                        f"has no signal that is not a color (a bolder weight, an underline or an outline)")
+            continue
+        how = ""
+        if cue:
+            how = " (the color alone is not enough; the state also sets " + ("an accent underline" if "BorderBrush" in cue.group(0) else cue.group(0).split('"')[1]) + ")"
+        out.append({"mode": "fullscreen", "label": f"{label}: {fgm.group(1)} against the resting {rest.group(1)}{how if r < 3.0 else ''}, read from {rel}",
+                    "fg": state_c[0], "bg": rest_c[0], "target": 3.0 if r >= 3.0 else 0.0, "group": "outline" if r >= 3.0 else "cue", "ratio": r,
+                    "cat": "State vs state"})
     return out, errs
 
 
@@ -1135,6 +1215,10 @@ def readme_errors() -> list[str]:
                          ("not affiliated", "the not-affiliated notice")):
         if needle not in text:
             errs.append(f"README.md: {what} is missing")
+    for stale in ("Theme (Desktop)", "Theme (Fullscreen)"):  # not Playnite 10.64's labels: Appearance > General > Theme / Fullscreen Theme; Fullscreen: Visuals > Theme
+        if stale in text:
+            errs.append(f"README.md: '{stale}' is not a setting of Playnite 10.64 (Desktop: Settings > Appearance > General > Theme / Fullscreen Theme; "
+                        f"Fullscreen: Settings > Visuals > Theme)")
     if re.search(r"\]\(\.\./", text):
         errs.append("README.md: a link leaves the repository (../); use an absolute https URL")
     if not (ROOT / "LICENSE").exists() or "MIT License" not in (ROOT / "LICENSE").read_text(encoding="utf-8"):
@@ -1370,6 +1454,10 @@ def md_fs_patches(theme: dict, p: dict) -> str:
             old = re.sub(r"\\(.)", r"\1", pat)
             if old.startswith("(<Style"):
                 chg = "the `Thumb` style's `Background`: `{DynamicResource ControlBackgroundBrush}` -> `{DynamicResource SelectionLightBrush}`"
+            elif repl.startswith("\\1"):
+                chg = "adds after the matched trigger setter: `" + " ".join(re.sub(r"\\\d", "", repl).split()) + "`"
+            elif "\\s" in pat:
+                chg = "the matching element is replaced by `" + " ".join(repl.split()) + "`"
             else:
                 chg = f"`{old}` -> `{repl}`"
             L.append(f"| `{rel}` | {chg.replace('|', '/')} | {count} | {why} |")
@@ -1390,18 +1478,23 @@ def md_fs_contrast(theme: dict, p: dict) -> str:
     for r in fs_rows(theme, p):
         res = "report only" if r["group"] == "report" else ("pass" if r["ratio"] >= r["target"] else "**FAIL**")
         tg = "-" if r["group"] == "report" else f"{r['target']:g}"
-        L.append(f"| {r['cat']} | {r['label']} (worst case `{r['bg'].upper()}`) | {r['ratio']:.2f} | {tg} | {res} |")
+        if r["group"] == "cue":
+            res, tg = "pass: has a non-color cue", "3 or a cue"
+        what = f"resting color `{r['bg'].upper()}`" if r["cat"] == "State vs state" else f"worst case `{r['bg'].upper()}`"
+        L.append(f"| {r['cat']} | {r['label']} ({what}) | {r['ratio']:.2f} | {tg} | {res} |")
     return "\n".join(L)
 
 
 def md_fs_contrast_readme(theme: dict, p: dict) -> str:
     fr = fs_rows(theme, p)
     L = ["| Fullscreen pair group | Target | Slate (lowest) |", "| :--- | ---: | ---: |"]
-    for cat, target in (("Main text", 4.5), ("Accent", 3.0), ("Light accent", 3.0), ("Control borders", 3.0), ("Status", 3.0), ("States", 3.0), ("Focus outline", 3.0)):
+    for cat, target in (("Main text", 4.5), ("Accent", 3.0), ("Light accent", 3.0), ("Control borders", 3.0), ("Status", 3.0), ("States", 3.0), ("State vs state", 3.0), ("Focus outline", 3.0)):
         sel = [r for r in fr if r["cat"] == cat and r["group"] != "report"]
         tg = {"Main text": "4.5 (7 on opaque surfaces)", "Accent": "4.5 (3 on the translucent bar)", "Light accent": "4.5 (3 on the translucent bars)",
-              "Status": "4.5 (3 for the icon)", "States": "4.5 (3 for check marks)"}.get(cat, f"{target:g}")
-        L.append(f"| {cat}: {len(sel)} pairs | {tg} | {min(r['ratio'] for r in sel):.2f} |")
+              "Status": "4.5 (3 for the icon)", "States": "4.5 (3 for check marks)",
+              "State vs state": "3, or a bolder weight / an underline"}.get(cat, f"{target:g}")
+        low = f"{min(r['ratio'] for r in sel):.2f}" + (" (with a non-color cue)" if any(r["group"] == "cue" for r in sel) else "")
+        L.append(f"| {cat}: {len(sel)} pairs | {tg} | {low} |")
     n = len([r for r in fr if r["group"] != "report"])
     L.append("")
     L.append(f"Every pair is listed in [docs/mapping.md](docs/mapping.md#fullscreen-contrast); {n} targets, all met. Translucent surfaces are measured over a pure white and a pure black background picture.")

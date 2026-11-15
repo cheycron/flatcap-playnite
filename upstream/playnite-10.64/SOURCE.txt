@@ -1,0 +1,9 @@
+Playnite 10.64, Default Desktop and Default Fullscreen themes, unmodified (see SHA256SUMS).
+
+Source repository: https://github.com/JosefNemec/Playnite
+Tag:               10.64 (an annotated tag; the tag object is 60c918588c103ab9e5f732ae455f33acfba98074)
+Commit of the tag: e2e6efcda311fea38fcd92f61c8ca90811d97f28
+Release archive:   10.64.7z, SHA-256 a4538628d6a0f49cd337c8a8640294849d736217bf4d2d7c99c1eb1b68428611
+
+The files here are the ones of that release archive, byte for byte (Playnite writes CRLF line endings and some files start with a UTF-8 BOM; they
+are kept as they are here, and normalised only in memory by scripts/build.py, see docs/mapping.md).

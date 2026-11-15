@@ -2,7 +2,7 @@
 
 ![Version](https://img.shields.io/badge/version-2.0.0-blueviolet) ![Playnite](https://img.shields.io/badge/Playnite-10.64-blue) ![License](https://img.shields.io/badge/license-MIT-blue)
 
-Three themes for [Playnite](https://playnite.link) 10.x: **Flatcap Slate** (dark) and **Flatcap Daylight** (light) for Desktop mode, and **Flatcap Slate** for Fullscreen mode. They apply the [Flatcap 2.0](https://github.com/cheycron/flatcap-theme) palette, type and metrics to Playnite's own Default theme, changing only what is needed. Each theme ships sixteen small files; Playnite takes everything else from its Default theme.
+Three themes for [Playnite](https://playnite.link) 10.x: **Flatcap Slate** (dark) and **Flatcap Daylight** (light) for Desktop mode, and **Flatcap Slate** for Fullscreen mode. They apply the [Flatcap 2.0](https://github.com/cheycron/flatcap-theme) palette, type and metrics to Playnite's own Default theme, changing only what is needed. Each theme ships sixteen small files (thirteen Default files with small patches, plus a generated `Constants.xaml`, `theme.yaml` and `LICENSE.txt`); Playnite takes everything else from its Default theme.
 
 This project is not affiliated with Playnite or Josef Nemec. It is a derivative of Playnite's Default theme (MIT), see [Third-party code and licenses](#third-party-code-and-licenses).
 
@@ -24,16 +24,16 @@ The screenshots show a throwaway library of invented games with generated covers
 
 ## Install
 
-> **Installing replaces the theme's folder.** Both methods end in `Themes/Desktop/<ThemeId>/`. If that folder exists (an earlier Flatcap, or a copy you edited), treat it as replaced: back up anything of yours and delete it first, so no file of an older version stays behind. Nothing outside that folder is touched.
+> **Installing replaces the theme's folder.** Both methods end in `Themes/<Mode>/<ThemeId>/` (`<Mode>` is `Desktop` or `Fullscreen`). If that folder exists (an earlier Flatcap, or a copy you edited), treat it as replaced: back up anything of yours and delete it first, so no file of an older version stays behind. Nothing outside that folder is touched.
 
 Playnite packages themes as **`.pthm`** files (`.pext` is for extensions; Playnite's installer tells them apart by the extension). This repository therefore ships `.pthm` files in `dist/`. The download links in the table above use `raw/main`, which **return 404 while this repository is private** (they work only for people signed in to GitHub with access); until it is public, use a clone of the repository or GitHub's own file download.
 
 **Manual install (the method that was tested):**
 
 1. Close Playnite.
-2. Take the theme from `dist/` (`Flatcap_Slate_Desktop_2_0_0.pthm` or `Flatcap_Daylight_Desktop_2_0_0.pthm`). A `.pthm` is a ZIP file.
-3. Delete `<Playnite data folder>/Themes/Desktop/<ThemeId>/` if it exists, then unzip the package into it so that `theme.yaml` sits directly in that folder (`<ThemeId>` is `Flatcap_Slate_Desktop` or `Flatcap_Daylight_Desktop`). The unpacked folders `themes/Desktop/<ThemeId>/` in this repository are the same files; you can copy one of those instead.
-4. Start Playnite, open **Settings > Appearance > Theme (Desktop)** and choose Flatcap Slate or Flatcap Daylight. Restart when Playnite asks.
+2. Take the theme from `dist/` (`Flatcap_Slate_Desktop_2_0_0.pthm`, `Flatcap_Daylight_Desktop_2_0_0.pthm` or `Flatcap_Slate_Fullscreen_2_0_0.pthm`). A `.pthm` is a ZIP file.
+3. Delete `<Playnite data folder>/Themes/<Mode>/<ThemeId>/` if it exists, then unzip the package into it so that `theme.yaml` sits directly in that folder (`<ThemeId>` is `Flatcap_Slate_Desktop`, `Flatcap_Daylight_Desktop` or `Flatcap_Slate_Fullscreen`; `<Mode>` is the folder of the same name in `themes/` in this repository). The unpacked folders `themes/<Mode>/<ThemeId>/` in this repository are the same files; you can copy one of those instead.
+4. Start Playnite and choose the theme (see *Use it* and *Fullscreen* below). Restart when Playnite asks.
 
 For a copy installed with the installer, the data folder is `%AppData%\Playnite`; for a portable copy it is the folder of `Playnite.DesktopApp.exe`.
 
@@ -41,7 +41,7 @@ For a copy installed with the installer, the data folder is `%AppData%\Playnite`
 
 ## Use it
 
-Nothing to configure. Slate and Daylight are separate themes; switch between them in the same setting. The Fullscreen theme is a separate one with its own setting (see the Fullscreen section).
+Nothing to configure. In Playnite's Desktop mode open **Settings > Appearance > General > Theme** and choose Flatcap Slate or Flatcap Daylight (they are separate themes; you switch between them in that same setting). Restart Playnite when it asks. The Fullscreen theme is a separate one with its own setting (see the Fullscreen section).
 
 **Cover overlay in Daylight.** The overlay Playnite draws over a game cover (the name on hover, and the *Darken uninstalled* effect for games that are not installed) is the theme's own canvas color at 80% opacity. In Slate that is dark, as in Playnite; in **Daylight it is light**, so *Darken uninstalled* lightens the cover of an uninstalled game there instead of darkening it. The text on it keeps its contrast (checked over a pure white and a pure black cover).
 
@@ -51,30 +51,32 @@ Nothing to configure. Slate and Daylight are separate themes; switch between the
 
 | Grid | Game details | Menu with the focus on an entry |
 | :--- | :--- | :--- |
-| ![Flatcap Slate, Fullscreen grid](images/fullscreen-slate-grid.png) | ![Flatcap Slate, Fullscreen details](images/fullscreen-slate-details.png) | ![Flatcap Slate, Fullscreen menu](images/fullscreen-slate-menu.png) |
+| ![Flatcap Slate, Fullscreen grid](images/fullscreen-slate-grid.png) | ![Flatcap Slate, Fullscreen details](images/fullscreen-slate-details.png) | ![Flatcap Slate, Fullscreen game menu](images/fullscreen-slate-menu.png) |
 
 **Install** (manual, the same method as the Desktop themes): close Playnite, delete `<Playnite data folder>/Themes/Fullscreen/Flatcap_Slate_Fullscreen/` if it exists, unzip `dist/Flatcap_Slate_Fullscreen_2_0_0.pthm` into that folder so that `theme.yaml` sits directly in it, and start Playnite.
 
-**Select it.** In **Settings > Appearance > Theme (Fullscreen)** (the Fullscreen theme is chosen separately from the Desktop one) choose *Flatcap Slate*, or in Fullscreen mode open the main menu, **Settings > Appearance** (it is the same setting). Restart Playnite when it asks. The Desktop and the Fullscreen choices do not affect each other.
+**Select it.** In Playnite's Desktop mode open **Settings > Appearance > General > Fullscreen Theme** and choose *Flatcap Slate*; or, from inside Fullscreen mode, open the main menu and go to **Settings > Visuals > Theme** (the same setting). It needs a restart of Playnite. The Desktop and the Fullscreen choices do not affect each other.
 
 What is different from the Desktop themes, on purpose:
 
-- **Sizes and font are Playnite's own.** A TV interface needs large text: Fullscreen's smallest text is 18 px (22 px for body text) and uses Titillium Web, which Playnite bundles. `--check` fails if a text size under 18 px appears in a shipped file. The one text smaller than that in the Default theme, the game description (16 px), is raised to 20 px.
+- **Sizes and font are Playnite's own.** A TV interface needs large text: Fullscreen's smallest text is 18 px (22 px for body text) and uses Titillium Web, which Playnite bundles. `--check` fails if a text size under 18 px appears in a shipped file (as a `FontSize` attribute, a `FontSize` setter, an `HtmlFontSize` or a `FontSize` constant). The one text smaller than that in the Default theme, the game description (16 px), is raised to 20 px. **One exception, on purpose:** the 12 px dot (U+25CF) under the selected preset of the top bar is a decorative shape, not text, and `--check` skips only that element.
 - **The focus is the point.** With a controller or the keyboard the only cue of where you are is the focus: it is a 3 to 5 px accent outline (a shape, not a color change alone) on buttons, fields, filter items, settings rows, the top bar and the game covers (with a glow). Every focus outline is checked at 3:1 against every surface it can sit on, and the text of every focused or hovered state at 4.5:1, read from the shipped XAML.
+- **No state is shown by color alone.** In the Default theme four states differ from their resting state only by a text color that is 1.2 to 1.4:1 from it (a focused preset in the top bar, a filter with an active selection (two controls) and a checked toggle button). They now also get a signal that is not a color: a 3 px accent underline on the focused preset, bold text and a 2 px underline on an active filter row, bold text on an active filter button, bold text and a 2 px outline on a checked toggle button. `--check` reads each state from the shipped XAML and fails if its color is under 3:1 from the resting one and it has none of those signals.
 - **Fixed colors removed.** The Default theme draws black text on a dark fill in a focused combo box (about 1.1:1) and writes white, red and black directly in a few views; those are patched to resources that come from the tokens (list in docs/mapping.md).
 
 <!-- build:fs-contrast -->
 | Fullscreen pair group | Target | Slate (lowest) |
 | :--- | ---: | ---: |
-| Main text: 6 pairs | 4.5 (7 on opaque surfaces) | 5.77 |
-| Accent: 6 pairs | 4.5 (3 on the translucent bar) | 4.18 |
-| Light accent: 6 pairs | 4.5 (3 on the translucent bars) | 4.81 |
+| Main text: 7 pairs | 4.5 (7 on opaque surfaces) | 5.77 |
+| Accent: 7 pairs | 4.5 (3 on the translucent bar) | 4.18 |
+| Light accent: 7 pairs | 4.5 (3 on the translucent bars) | 4.81 |
 | Control borders: 4 pairs | 3 | 4.32 |
 | Status: 5 pairs | 4.5 (3 for the icon) | 3.76 |
 | States: 16 pairs | 4.5 (3 for check marks) | 8.80 |
-| Focus outline: 10 pairs | 3 | 4.18 |
+| State vs state: 4 pairs | 3, or a bolder weight / an underline | 1.20 (with a non-color cue) |
+| Focus outline: 11 pairs | 3 | 4.18 |
 
-Every pair is listed in [docs/mapping.md](docs/mapping.md#fullscreen-contrast); 53 targets, all met. Translucent surfaces are measured over a pure white and a pure black background picture.
+Every pair is listed in [docs/mapping.md](docs/mapping.md#fullscreen-contrast); 61 targets, all met. Translucent surfaces are measured over a pure white and a pure black background picture.
 <!-- /build:fs-contrast -->
 
 **Flatcap Daylight for Fullscreen is not made.** It is a technical decision, not an omission: Fullscreen draws game art, covers and a user-chosen background picture behind translucent bars, with text that is meant to be light on a dark layer. A light variant needs its own surfaces for text over art of any brightness (the check would have to prove it over white and black art for dark text too) and a different focus treatment, which is a design of its own and not a recolor of the same files. Slate covers the TV use case; a light Fullscreen theme is left for a later version.
