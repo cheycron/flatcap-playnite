@@ -80,6 +80,12 @@ def sub(old: str, new: str, count: int = 1):
     return fn
 
 
+def delete(path: str):
+    def run(d: Path):
+        (d / path).unlink()
+    return run
+
+
 def append(text: str):
     return lambda s: s + text
 
@@ -383,6 +389,15 @@ CASES = [
     ("lit-12", "Black outside an opacity mask", edit(f"{SLATE}/Media.xaml", before_close('<Setter Property="Foreground" Value="Black" />')), "--check", "named color 'Black'"),
     ("lit-13", "LightGray text (the SearchView description) back in", edit(f"{DAY}/Views/SearchView.xaml", sub('Value="{DynamicResource TextBrushDarker}"', 'Value="LightGray"')), "--check", "named color 'LightGray'"),
     ("readme-5", "link that leaves the repository", edit("README.md", append("\n[core](../00-Flatcap)\n")), "--check", "a link leaves the repository"),
+    ("inst-1", "installer manifest missing", delete("installer/Flatcap_Slate_Desktop.yaml"), "--check", "installer manifest is missing"),
+    ("inst-2", "installer AddonId differs from the theme Id", edit("installer/Flatcap_Slate_Desktop.yaml", sub("AddonId: Flatcap_Slate_Desktop", "AddonId: Flatcap_Slate_Other")), "--check", "differs from the theme Id"),
+    ("inst-3", "installer Version differs from theme.yaml", edit("installer/Flatcap_Daylight_Desktop.yaml", sub("Version: 2.0.0", "Version: 2.0.1")), "--check", "differs from theme.yaml Version"),
+    ("inst-4", "installer RequiredApiVersion differs from ThemeApiVersion", edit("installer/Flatcap_Slate_Fullscreen.yaml", sub("RequiredApiVersion: 2.0.0", "RequiredApiVersion: 2.1.0")), "--check", "differs from the theme's ThemeApiVersion"),
+    ("inst-5", "installer PackageUrl names another file", edit("installer/Flatcap_Slate_Desktop.yaml", sub("Flatcap_Slate_Desktop_2_0_0.pthm", "Flatcap_Slate_Desktop_1_0_0.pthm")), "--check", "does not end in the dist file name"),
+    ("inst-6", "installer PackageUrl is not a .pthm", edit("installer/Flatcap_Slate_Desktop.yaml", sub("Flatcap_Slate_Desktop_2_0_0.pthm", "Flatcap_Slate_Desktop_2_0_0.pext")), "--check", "does not end in the dist file name"),
+    ("inst-7", "installer ReleaseDate malformed", edit("installer/Flatcap_Slate_Desktop.yaml", sub("2026-11-14", "14/11/2026")), "--check", "ReleaseDate '14/11/2026' must be YYYY-MM-DD"),
+    ("inst-8", "installer stale (changelog edited by hand)", edit("installer/Flatcap_Slate_Desktop.yaml", sub("Initial release", "Something else")), "--check", "stale generated file: installer/Flatcap_Slate_Desktop.yaml"),
+    ("inst-9", "installer lists a second package", edit("installer/Flatcap_Slate_Desktop.yaml", append("  - Version: 1.0.0\n")), "--check", "differs from theme.yaml Version"),
 ]
 
 

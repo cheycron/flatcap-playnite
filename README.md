@@ -26,7 +26,15 @@ The screenshots show a throwaway library of invented games with generated covers
 
 > **Installing replaces the theme's folder.** Both methods end in `Themes/<Mode>/<ThemeId>/` (`<Mode>` is `Desktop` or `Fullscreen`). If that folder exists (an earlier Flatcap, or a copy you edited), treat it as replaced: back up anything of yours and delete it first, so no file of an older version stays behind. Nothing outside that folder is touched.
 
-Playnite packages themes as **`.pthm`** files (`.pext` is for extensions; Playnite's installer tells them apart by the extension). This repository therefore ships `.pthm` files in `dist/`. The download links in the table above use `raw/main`, which **return 404 while this repository is private** (they work only for people signed in to GitHub with access); until it is public, use a clone of the repository or GitHub's own file download.
+Playnite packages themes as **`.pthm`** files (`.pext` is for extensions; Playnite's installer tells them apart by the extension). This repository therefore ships `.pthm` files in `dist/`, and the same files are attached to the [GitHub release](https://github.com/cheycron/flatcap-playnite/releases/tag/v2.0.0). The download links in the table above point at `dist/` on `main`.
+
+**From Playnite's add-on browser: pending review, not available yet.** The three themes have installer manifests in [`installer/`](installer/) and a pull request to the [Playnite add-on database](https://github.com/JosefNemec/PlayniteAddonDatabase) is prepared, but it is **not merged**: until it is, the themes do not appear in Playnite's add-on browser and the links below do nothing. (The database currently says submissions are on hold.) Once merged, each theme can be installed with its add-on URI or found on the web add-on browser:
+
+| Theme | Add-on URI | Web add-on browser |
+| :--- | :--- | :--- |
+| Flatcap Slate (Desktop) | `playnite://playnite/installaddon/Flatcap_Slate_Desktop` | `https://playnite.link/addons.html#Flatcap_Slate_Desktop` |
+| Flatcap Daylight (Desktop) | `playnite://playnite/installaddon/Flatcap_Daylight_Desktop` | `https://playnite.link/addons.html#Flatcap_Daylight_Desktop` |
+| Flatcap Slate (Fullscreen) | `playnite://playnite/installaddon/Flatcap_Slate_Fullscreen` | `https://playnite.link/addons.html#Flatcap_Slate_Fullscreen` |
 
 **Manual install (the method that was tested):**
 
@@ -135,13 +143,13 @@ The shipped XAML files are modified copies of files of the Default theme of [Pla
 `src/theme.json` is a copy of the [Flatcap core](https://github.com/cheycron/flatcap-theme) and its SHA-256 is pinned in `src/playnite.json` (`core.sha256`): `--check` fails if the copy differs. To take a core change, copy the file over, run `--pin-core`, then `--sync`. Edit `src/playnite.json` for the mapping, then:
 
 ```
-python3 scripts/build.py --sync     # regenerate themes/, dist/ and the generated blocks of the docs
+python3 scripts/build.py --sync     # regenerate themes/, dist/, installer/ and the generated blocks of the docs
 python3 scripts/build.py --check    # exit 1 on any drift or failed check
 python3 scripts/build.py --pin-core # after copying a new core on purpose
 python3 scripts/mutation_test.py    # proves each check fails when it should
 ```
 
-Python 3.10+, standard library only. Do not edit anything under `themes/`, `dist/` or between `<!-- build:... -->` markers by hand.
+Python 3.10+, standard library only. Do not edit anything under `themes/`, `dist/`, `installer/` or between `<!-- build:... -->` markers by hand.
 
 **Private names.** `--check` refuses private paths, addresses and names. The generic patterns (private and CGNAT IP ranges, `*.ts.net`, home and `/mnt` paths, Windows user folders, UNC shares, non-noreply emails) are in `scripts/build.py`. Names that only you know (your machines, domains, user name) go in a local `.private-patterns` file, one regular expression per line, which git ignores: copy [`.private-patterns.example`](.private-patterns.example). `FLATCAP_PRIVATE_PATTERNS=<file>` points the check at another file.
 

@@ -16,6 +16,11 @@
     "fullscreen_theme_api_version": "2.0.0",
     "fullscreen_app_theme_api_version": "2.10.0"
   },
+  "release": {
+    "tag_prefix": "v",
+    "date": "2026-11-14",
+    "changelog": ["Initial release"]
+  },
   "themes": {
     "slate": {
       "id": "Flatcap_Slate_Desktop",

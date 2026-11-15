@@ -18,6 +18,7 @@ What it builds
                            generated Constants.xaml, a handful of Default-theme files with small documented patches, and LICENSE.txt.
                            Playnite loads only the files a theme ships and takes every other file from its own Default theme, so
                            nothing else is copied (see docs/mapping.md).
+  * installer/<Id>.yaml    the installer manifest for the Playnite add-on browser (AddonId, version, API, PackageUrl of the GitHub release asset)
   * dist/<Id>_<version>.pthm   the package the Toolbox (`Toolbox.exe pack`) makes: a ZIP with theme.yaml and the shipped files. The
                            build writes it deterministically: fixed timestamp, member order and attributes.
 The base of every shipped Default file is vendored, unmodified, in upstream/playnite-10.64/ with its SHA-256 in SHA256SUMS: --check fails
@@ -1157,6 +1158,54 @@ def fs_rows(theme: dict, p: dict) -> list[dict]:
     return fs_rows_and_errors(theme, p)[0]
 
 
+# --- installer manifests (Playnite add-on browser) -----------------------------------------------------------------------
+
+def installer_path(p: dict, mode: str) -> Path:
+    return ROOT / "installer" / f"{p['themes'][mode]['id']}.yaml"
+
+
+def installer_text(theme: dict, p: dict, mode: str) -> str:
+    """The installer manifest of the Playnite add-on database format: AddonId and one package, which points at the release asset."""
+    t = p["themes"][mode]
+    api = p["playnite"]["desktop_theme_api_version" if t["mode"] == "Desktop" else "fullscreen_theme_api_version"]
+    r = p["release"]
+    url = f"{p['repo']}/releases/download/{r['tag_prefix']}{theme['version']}/{pthm_path(theme, p, mode).name}"
+    return (f"AddonId: {t['id']}\nPackages:\n  - Version: {theme['version']}\n    RequiredApiVersion: {api}\n    ReleaseDate: {r['date']}\n"
+            f"    PackageUrl: {url}\n    Changelog:\n" + "".join(f"      - {c}\n" for c in r["changelog"]))
+
+
+def installer_errors(theme: dict, p: dict) -> list[str]:
+    errs = []
+    r = p["release"]
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", r["date"]):
+        errs.append("src/playnite.json: release.date must be YYYY-MM-DD")
+    for mode in MODES:
+        f = installer_path(p, mode)
+        rel = f.relative_to(ROOT)
+        if not f.exists():
+            errs.append(f"{rel}: installer manifest is missing (run --sync)")
+            continue
+        text = f.read_text(encoding="utf-8")
+        t = p["themes"][mode]
+        api = p["playnite"]["desktop_theme_api_version" if t["mode"] == "Desktop" else "fullscreen_theme_api_version"]
+        y = {m.group(1): m.group(2).strip() for m in re.finditer(r"^\s*(?:- )?([A-Za-z]+):[ \t]*(.*)$", text, re.M)}
+        ty = parse_simple_yaml((theme_dir(p, mode) / "theme.yaml").read_text(encoding="utf-8")) if (theme_dir(p, mode) / "theme.yaml").exists() else {}
+        if y.get("AddonId") != (ty.get("Id") or t["id"]):
+            errs.append(f"{rel}: AddonId {y.get('AddonId')!r} differs from the theme Id {ty.get('Id') or t['id']!r}")
+        if text.count("  - Version:") != 1 or y.get("Version") != (ty.get("Version") or theme["version"]):
+            errs.append(f"{rel}: installer Version {y.get('Version')!r} differs from theme.yaml Version")
+        if y.get("RequiredApiVersion") != (ty.get("ThemeApiVersion") or api):
+            errs.append(f"{rel}: RequiredApiVersion {y.get('RequiredApiVersion')!r} differs from the theme's ThemeApiVersion")
+        if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", y.get("ReleaseDate", "")):
+            errs.append(f"{rel}: ReleaseDate {y.get('ReleaseDate')!r} must be YYYY-MM-DD")
+        url = y.get("PackageUrl", "")
+        if url.rsplit("/", 1)[-1] != pthm_path(theme, p, mode).name or not url.endswith(".pthm"):
+            errs.append(f"{rel}: PackageUrl {url!r} does not end in the dist file name {pthm_path(theme, p, mode).name}")
+        if text != installer_text(theme, p, mode):
+            errs.append(f"stale generated file: {rel} (run --sync)")
+    return errs
+
+
 # --- docs: markers, blocks, README, images, privacy -----------------------------------------------------------------
 
 def marker_errors() -> list[str]:
@@ -1530,7 +1579,7 @@ def all_errors(theme: dict, p: dict) -> list[str]:
         errs += pthm_errors(theme, p) + folder_errors(theme, p) + yaml_errors(theme, p) + xml_errors(theme, p)
     except (ValueError, KeyError) as e:
         errs.append(f"build error: {e}")
-    return errs + readme_errors() + image_errors() + privacy_errors() + contrast_errors(theme, p)
+    return errs + installer_errors(theme, p) + readme_errors() + image_errors() + privacy_errors() + contrast_errors(theme, p)
 
 
 def main() -> int:
@@ -1567,6 +1616,8 @@ def main() -> int:
                 (d / name).write_bytes(data)
             pthm_path(theme, p, m).parent.mkdir(exist_ok=True)
             pthm_path(theme, p, m).write_bytes(pthm_bytes(files))
+            installer_path(p, m).parent.mkdir(exist_ok=True)
+            installer_path(p, m).write_text(installer_text(theme, p, m), encoding="utf-8")
         if not marker_errors():
             for d in DOCS:
                 d.write_text(render(d, theme, p), encoding="utf-8")
