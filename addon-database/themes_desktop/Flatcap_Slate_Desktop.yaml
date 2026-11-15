@@ -1,0 +1,21 @@
+AddonId: Flatcap_Slate_Desktop
+Type: ThemeDesktop
+InstallerManifestUrl: https://raw.githubusercontent.com/cheycron/flatcap-playnite/main/installer/Flatcap_Slate_Desktop.yaml
+ShortDescription: A flat, dark Desktop theme with a restrained blue accent and checked text contrast.
+Description: |-
+    A dark Desktop theme built on Playnite 10.64's Default theme: a flat palette, one muted blue accent and a type scale from the Flatcap design system.
+    Text, hover and focus states are checked against contrast targets by the project's build.
+    No extensions or settings are needed. Tested with Playnite 10.64 on Windows, grid and details views.
+Name: Flatcap Slate
+Author: Cheycron
+Tags: ["Theme", "Desktop", "Dark", "Flat", "Minimal", "Accessibility"]
+SourceUrl: https://github.com/cheycron/flatcap-playnite
+Links:
+  GitHub: https://github.com/cheycron/flatcap-playnite
+  Issues Tracker: https://github.com/cheycron/flatcap-playnite/issues
+  Releases: https://github.com/cheycron/flatcap-playnite/releases
+Screenshots:
+  - Thumbnail: https://raw.githubusercontent.com/cheycron/flatcap-playnite/main/images/desktop-slate-grid.png
+    Image: https://raw.githubusercontent.com/cheycron/flatcap-playnite/main/images/desktop-slate-grid.png
+  - Thumbnail: https://raw.githubusercontent.com/cheycron/flatcap-playnite/main/images/desktop-slate-details.png
+    Image: https://raw.githubusercontent.com/cheycron/flatcap-playnite/main/images/desktop-slate-details.png

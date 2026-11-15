@@ -1,0 +1,21 @@
+AddonId: Flatcap_Slate_Fullscreen
+Type: ThemeFullscreen
+InstallerManifestUrl: https://raw.githubusercontent.com/cheycron/flatcap-playnite/main/installer/Flatcap_Slate_Fullscreen.yaml
+ShortDescription: A flat, dark Fullscreen theme with a restrained blue accent and non-colour focus cues.
+Description: |-
+    A dark Fullscreen theme built on Playnite 10.64's Default Fullscreen theme: a flat palette and one muted blue accent, with Playnite's own couch-distance text sizes.
+    Focus and active states do not rely on colour alone, and text contrast is checked by the project's build.
+    Tested with Playnite 10.64 on Windows at 2560x1440; not tested with a real controller or a TV.
+Name: Flatcap Slate (Fullscreen)
+Author: Cheycron
+Tags: ["Theme", "Fullscreen", "Dark", "Flat", "Minimal", "Accessibility"]
+SourceUrl: https://github.com/cheycron/flatcap-playnite
+Links:
+  GitHub: https://github.com/cheycron/flatcap-playnite
+  Issues Tracker: https://github.com/cheycron/flatcap-playnite/issues
+  Releases: https://github.com/cheycron/flatcap-playnite/releases
+Screenshots:
+  - Thumbnail: https://raw.githubusercontent.com/cheycron/flatcap-playnite/main/images/fullscreen-slate-grid.png
+    Image: https://raw.githubusercontent.com/cheycron/flatcap-playnite/main/images/fullscreen-slate-grid.png
+  - Thumbnail: https://raw.githubusercontent.com/cheycron/flatcap-playnite/main/images/fullscreen-slate-details.png
+    Image: https://raw.githubusercontent.com/cheycron/flatcap-playnite/main/images/fullscreen-slate-details.png

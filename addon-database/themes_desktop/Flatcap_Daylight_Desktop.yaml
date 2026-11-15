@@ -1,0 +1,21 @@
+AddonId: Flatcap_Daylight_Desktop
+Type: ThemeDesktop
+InstallerManifestUrl: https://raw.githubusercontent.com/cheycron/flatcap-playnite/main/installer/Flatcap_Daylight_Desktop.yaml
+ShortDescription: A flat, light Desktop theme with a deep blue accent and checked text contrast.
+Description: |-
+    A light Desktop theme built on Playnite 10.64's Default theme: a flat palette, one deep blue accent and a type scale from the Flatcap design system.
+    Text, hover and focus states are checked against contrast targets by the project's build.
+    No extensions or settings are needed. Tested with Playnite 10.64 on Windows, grid and details views.
+Name: Flatcap Daylight
+Author: Cheycron
+Tags: ["Theme", "Desktop", "Light", "Flat", "Minimal", "Accessibility"]
+SourceUrl: https://github.com/cheycron/flatcap-playnite
+Links:
+  GitHub: https://github.com/cheycron/flatcap-playnite
+  Issues Tracker: https://github.com/cheycron/flatcap-playnite/issues
+  Releases: https://github.com/cheycron/flatcap-playnite/releases
+Screenshots:
+  - Thumbnail: https://raw.githubusercontent.com/cheycron/flatcap-playnite/main/images/desktop-daylight-grid.png
+    Image: https://raw.githubusercontent.com/cheycron/flatcap-playnite/main/images/desktop-daylight-grid.png
+  - Thumbnail: https://raw.githubusercontent.com/cheycron/flatcap-playnite/main/images/desktop-daylight-details.png
+    Image: https://raw.githubusercontent.com/cheycron/flatcap-playnite/main/images/desktop-daylight-details.png

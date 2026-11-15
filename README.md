@@ -28,7 +28,7 @@ The screenshots show a throwaway library of invented games with generated covers
 
 Playnite packages themes as **`.pthm`** files (`.pext` is for extensions; Playnite's installer tells them apart by the extension). This repository therefore ships `.pthm` files in `dist/`, and the same files are attached to the [GitHub release](https://github.com/cheycron/flatcap-playnite/releases/tag/v2.0.0). The download links in the table above point at `dist/` on `main`.
 
-**From Playnite's add-on browser: pending review, not available yet.** The three themes have installer manifests in [`installer/`](installer/) and a pull request to the [Playnite add-on database](https://github.com/JosefNemec/PlayniteAddonDatabase) is prepared, but it is **not merged**: until it is, the themes do not appear in Playnite's add-on browser and the links below do nothing. (The database currently says submissions are on hold.) Once merged, each theme can be installed with its add-on URI or found on the web add-on browser:
+**From Playnite's add-on browser: not available yet.** The three themes have installer manifests in [`installer/`](installer/), and their [Playnite add-on database](https://github.com/JosefNemec/PlayniteAddonDatabase) entries are ready in [`addon-database/`](addon-database/), but they have **not been submitted**: the database has paused new submissions until its new add-on portal ships. Until they are accepted, the themes do not appear in Playnite's add-on browser and the links below do nothing. Once accepted, each theme can be installed with its add-on URI or found on the web add-on browser:
 
 | Theme | Add-on URI | Web add-on browser |
 | :--- | :--- | :--- |
